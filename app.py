@@ -4,19 +4,20 @@ import streamlit as st
 def load_data():
     """Carrega e processa os dados dos arquivos Excel"""
     try:
-    emissoes_df = pd.read_excel("EMISSOES_KM.xlsx")
-    emissoes_df.columns = emissoes_df.columns.str.strip().str.upper()
-    emissoes_df['DATA_EMISSÃO'] = pd.to_datetime(emissoes_df['DATA_EMISSÃO'])
+        emissoes_df = pd.read_excel("EMISSOES_KM.xlsx")
+        emissoes_df.columns = emissoes_df.columns.str.strip().str.upper()
+        emissoes_df['DATA_EMISSÃO'] = pd.to_datetime(emissoes_df['DATA_EMISSÃO'])
 
-    cancelamentos_df = pd.read_excel("CANCELAMENTOS_KM.xlsx")
-    cancelamentos_df.columns = cancelamentos_df.columns.str.strip().str.upper()
-    cancelamentos_df['DATA_CANCELADO'] = pd.to_datetime(cancelamentos_df['DATA_CANCELADO'])
+        cancelamentos_df = pd.read_excel("CANCELAMENTOS_KM.xlsx")
+        cancelamentos_df.columns = cancelamentos_df.columns.str.strip().str.upper()
+        cancelamentos_df['DATA_CANCELADO'] = pd.to_datetime(cancelamentos_df['DATA_CANCELADO'])
 
-    return emissoes_df, cancelamentos_df
+        return emissoes_df, cancelamentos_df
 
     except Exception as e:
         st.error(f"Erro ao carregar os dados: {e}")
         return None, None
+
 
 import streamlit as st
 import pandas as pd
