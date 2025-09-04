@@ -265,7 +265,11 @@ def load_data():
         # Carregando dados de cancelamentos
         cancelamentos_df = pd.read_excel("CANCELAMENTOS_KM.xlsx")
         cancelamentos_df["DATA_CANCELADO"] = pd.to_datetime(cancelamentos_df["DATA_CANCELADO"])
-        cancelamentos_df["MÊS"] = cancelamentos_df["DATA_CANCELADO"].dt.strftime("%B").str.upper()
+        meses_pt = [
+            "JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO",
+            "JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"
+        ]
+        cancelamentos_df["MÊS"] = cancelamentos_df["DATA_CANCELADO"].dt.month.apply(lambda x: meses_pt[x-1])
 
         return emissoes_df, cancelamentos_df
     except Exception as e:
