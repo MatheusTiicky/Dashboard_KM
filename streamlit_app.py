@@ -20,11 +20,11 @@ import locale, platform
 # ==============================================================
 
 # Tradução EN -> PT (abreviações usadas pelo strftime %b)
-MESES_MAP_ABREV = {
-    "Jan": "Jan", "Feb": "Fev", "Mar": "Mar",
-    "Apr": "Abr", "May": "Mai", "Jun": "Jun",
-    "Jul": "Jul", "Aug": "Ago", "Sep": "Set",
-    "Oct": "Out", "Nov": "Nov", "Dec": "Dez"
+MESES_MAP_COMPLETO = {
+    "January": "JANEIRO", "February": "FEVEREIRO", "March": "MARÇO",
+    "April": "ABRIL", "May": "MAIO", "June": "JUNHO",
+    "July": "JULHO", "August": "AGOSTO", "September": "SETEMBRO",
+    "October": "OUTUBRO", "November": "NOVEMBRO", "December": "DEZEMBRO"
 }
 
 # Mapeamento de nome completo -> posição do mês (para denominadores fixos)
@@ -1324,7 +1324,10 @@ def main():
                 df_evolucao['Cancelamentos'] = cancelamentos_mensais.reindex(meses_ano, fill_value=0)
                 df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
 
-                df_evolucao['Mes'] = df_evolucao.index.strftime('%B').str.upper()
+                df_evolucao['Mes'] = (
+                    df_evolucao.index.strftime('%B')  # nomes em inglês
+                    .map(MESES_MAP_COMPLETO)          # traduz para português
+                )
 
 
 
