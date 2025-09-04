@@ -1324,12 +1324,8 @@ def main():
                 df_evolucao['Cancelamentos'] = cancelamentos_mensais.reindex(meses_ano, fill_value=0)
                 df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
 
-                # 🔹 Força meses em PT-BR no eixo X
-                df_evolucao['Mes'] = (
-                    df_evolucao.index.strftime('%b').map(MESES_MAP_ABREV)  # traduz abreviação
-                    + '/' +
-                    df_evolucao.index.strftime('%y')                       # concatena ano
-                )
+                df_evolucao['Mes'] = df_evolucao.index.strftime('%B').str.upper()
+
 
 
 
@@ -3079,14 +3075,14 @@ def main():
                         icone_performance = "🏆"
                         cor_performance = "#22c55e"  # Verde
                         texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
-                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} emissões a mais"
+                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} Emissões a mais"
 
                     elif diferenca_abs < 0:
                         vencedor = usuario_b
                         icone_performance = "🏆"
                         cor_performance = "#22c55e"
                         texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
-                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} emissões a mais"
+                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} Emissões a mais"
 
                     else:
                         icone_performance = "🤝"
