@@ -1295,8 +1295,25 @@ def main():
                 
                 df_evolucao['Cancelamentos'] = cancelamentos_mensais.reindex(meses_ano, fill_value=0)
                 df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
-                df_evolucao['Mes'] = df_evolucao.index.strftime('%b/%y').str.title()
+                
+                df_evolucao['Cancelamentos'] = cancelamentos_mensais.reindex(meses_ano, fill_value=0)
+                df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
+
+                # 🔹 Força meses em PT-BR no eixo X
+                MESES_MAP = {
+                    "Jan": "Jan", "Feb": "Fev", "Mar": "Mar",
+                    "Apr": "Abr", "May": "Mai", "Jun": "Jun",
+                    "Jul": "Jul", "Aug": "Ago", "Sep": "Set",
+                    "Oct": "Out", "Nov": "Nov", "Dec": "Dez"
+                }
+
+                df_evolucao['Mes'] = (
+                    df_evolucao.index.strftime('%b/%y')   # Jan/25, Feb/25...
+                    .replace(MESES_MAP, regex=True)       # Força tradução
+                )
+
                 df_evolucao = df_evolucao.reset_index(drop=True)
+
 
                 fig_evolucao_taxa = go.Figure()
                 fig_evolucao_taxa.add_trace(go.Scatter(
