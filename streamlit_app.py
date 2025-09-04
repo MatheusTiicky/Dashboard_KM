@@ -3012,90 +3012,91 @@ def main():
 
                 st.markdown("### 💡 Insights da Comparação")
 
-                # --- Função de Card de Insight v3 ---
-                def insight_card_v3(titulo, valor_a, valor_b, usuario_a, usuario_b, icone_titulo, cor_borda):
-                    """
-                    Gera um card de insight estilizado para comparar dois valores.
-                    """
-                    diferenca = valor_a - valor_b
+                # (Dentro da aba "Produtividade", antes da chamada das colunas dos insights)
 
-                    if diferenca > 0:
+                # --- Função de Card de Insight v4 (com cálculo de percentual) ---
+                # --- Função de Card de Insight v4 (com cálculo de percentual) ---
+                def insight_card_v4(titulo, valor_a, valor_b, usuario_a, usuario_b, icone_titulo, cor_borda):
+                    """
+                    Gera um card de insight que calcula a diferença percentual e destaca o usuário superior.
+                    """
+                    # Evita divisão por zero se ambos os valores forem zero
+                    if valor_a == 0 and valor_b == 0:
+                        diferenca_abs = 0
+                        percentual = 0
+                    # Caso especial: um valor é zero e o outro não
+                    elif valor_b == 0:
+                        diferenca_abs = valor_a
+                        percentual = 100.0
+                    elif valor_a == 0:
+                        diferenca_abs = -valor_b
+                        percentual = 100.0
+                    else:
+                        diferenca_abs = valor_a - valor_b
+                        percentual = (abs(diferenca_abs) / min(valor_a, valor_b)) * 100
+
+                    # Define o vencedor e o texto da performance
+                    if diferenca_abs > 0:
                         vencedor = usuario_a
                         icone_performance = "🏆"
-                        cor_performance = "#22c55e"  # Verde vibrante
-                        texto_performance = f"{vencedor} foi superior em {abs(diferenca):,.0f}".replace(",", ".")
-                    elif diferenca < 0:
+                        cor_performance = "#22c55e"  # Verde
+                        texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
+                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} emissões a mais"
+
+                    elif diferenca_abs < 0:
                         vencedor = usuario_b
                         icone_performance = "🏆"
                         cor_performance = "#22c55e"
-                        texto_performance = f"{vencedor} foi superior em {abs(diferenca):,.0f}".replace(",", ".")
+                        texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
+                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} emissões a mais"
+
                     else:
                         icone_performance = "🤝"
-                        cor_performance = "#9ca3af"
+                        cor_performance = "#9ca3af" # Cinza
                         texto_performance = "Desempenho Idêntico"
+                        texto_diferenca = ""
 
-                    html = f"""
-                    <div style="
-                        background: linear-gradient(145deg, #1e293b, #0f172a);
-                        border: 2px solid {cor_borda};
-                        border-radius: 16px;
-                        padding: 1.5rem;
-                        text-align: center;
-                        color: #e2e8f0;
-                        font-family: 'Inter', sans-serif;
-                        box-shadow: 0 6px 12px rgba(0,0,0,0.3);
-                        height: 180px;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: space-between;
-                    ">
-                        <div style="font-size: 1.1rem; font-weight: 600; opacity: 0.9;">
-                            {icone_titulo} {titulo}
-                        </div>
-                        <div style="font-size: 1.25rem; color: {cor_performance}; margin: 0.5rem 0;">
+                    # Formata os valores
+                    valor_a_fmt = f"{valor_a:,.0f}".replace(",", ".")
+                    valor_b_fmt = f"{valor_b:,.0f}".replace(",", ".")
+
+                    # Renderização do card
+                    st.markdown(f"""
+                    <div style="border: 2px solid {cor_borda}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center;">
+                        <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 6px;">{icone_titulo} {titulo}</div>
+                        <div style="font-size: 1.1rem; color:{cor_performance}; margin-bottom:4px;">
                             {icone_performance} {texto_performance}
                         </div>
-                        <div style="
-                            font-size: 0.9rem;
-                            opacity: 0.7;
-                            border-top: 1px solid #334155;
-                            padding-top: 0.75rem;
-                            margin-top: 0.5rem;
-                        ">
-                            {usuario_a}: <b>{valor_a:,.0f}</b> | {usuario_b}: <b>{valor_b:,.0f}</b>
+                        {"<div style='font-size:1rem; color:#9ca3af;'>" + texto_diferenca + "</div>" if texto_diferenca else ""}
+                        <hr style="border: none; border-top: 1px solid #374151; margin: 10px 0;">
+                        <div style="font-size: 0.9rem; color: #d1d5db;">
+                            {usuario_a.upper()}: <b>{valor_a_fmt}</b> | {usuario_b.upper()}: <b>{valor_b_fmt}</b>
                         </div>
                     </div>
-                    """.replace(",", ".")
+                    """, unsafe_allow_html=True)
 
-                    return html
-
-
+                # (Dentro da aba "Produtividade", após a definição das colunas)
 
                 col1, col2, col3 = st.columns(3)
 
                 with col1:
-                    st.markdown(insight_card_v3(
+                    insight_card_v4(
                         "Total de Emissões", total_a, total_b, usuario_a, usuario_b,
                         "📦", "#3b82f6"
-                    ), unsafe_allow_html=True)
+                    )
 
                 with col2:
-                    st.markdown(insight_card_v3(
+                    insight_card_v4(
                         "Média Diária", media_diaria_a, media_diaria_b, usuario_a, usuario_b,
                         "📅", "#10b981"
-                    ), unsafe_allow_html=True)
+                    )
 
                 with col3:
-                    st.markdown(insight_card_v3(
+                    insight_card_v4(
                         "Média Mensal", media_mensal_a, media_mensal_b, usuario_a, usuario_b,
                         "🗓️", "#8b5cf6"
-                    ), unsafe_allow_html=True)
+                    )
 
-
-
-
-        
-                
                 st.markdown("---")
 
         # Ranking de Usuários
