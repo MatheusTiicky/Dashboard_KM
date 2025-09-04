@@ -1299,7 +1299,7 @@ def main():
                             font-weight:bold;
                             margin-top:10px;
                         ">
-                            Principal Motivo de Cancelamento que teve mais Impacto:<br>
+                            Principal Motivo de Cancelamento:<br>
                             👉 {motivo_principal}
                         </div>
                         """,
@@ -3664,6 +3664,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
