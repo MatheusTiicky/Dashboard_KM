@@ -1308,9 +1308,12 @@ def main():
                 }
 
                 df_evolucao['Mes'] = (
-                    df_evolucao.index.strftime('%b/%y')   # Jan/25, Feb/25...
-                    .replace(MESES_MAP, regex=True)       # Força tradução
+                    df_evolucao.index.strftime('%b/%y')
+                    .to_series()                          # 🔹 converte para Series
+                    .replace(MESES_MAP, regex=True)       # 🔹 aplica o dicionário
+                    .values                               # 🔹 volta para array
                 )
+
 
                 df_evolucao = df_evolucao.reset_index(drop=True)
 
