@@ -1260,27 +1260,35 @@ def main():
 
                 else:
                     # 🚨 Status acima da meta (tarja preta piscando)
+                
+                    # 👉 Pega o motivo mais frequente nos cancelamentos filtrados
+                    motivo_principal = (
+                        cancelamentos_filtrado["MOTIVO"]
+                        .value_counts()
+                        .idxmax() if not cancelamentos_filtrado.empty else "Motivo não disponível"
+                    )
+                
                     st.markdown(
-                        """
+                        f"""
                         <style>
-                        @keyframes blink {
-                            0%   { background-color: black; }
-                            50%  { background-color: #333; }
-                            100% { background-color: black; }
-                        }
-                        .tarja-blink {
+                        @keyframes blink {{
+                            0%   {{ background-color: black; }}
+                            50%  {{ background-color: #333; }}
+                            100% {{ background-color: black; }}
+                        }}
+                        .tarja-blink {{
                             animation: blink 1s infinite;
                             padding: 6px 14px;
                             border-radius: 8px;
                             display: inline-block;
                             font-weight: bold;
-                        }
+                        }}
                         </style>
-
+                
                         <div style="text-align:center; margin-top:10px; font-size:20px; font-weight:bold;">
                             🚨 <span class="tarja-blink" style="color:#ef4444;">Status: ACIMA DA META de 0.75%</span>
                         </div>
-
+                
                         <div style="
                             background-color:#dc2626;
                             color:white;
@@ -1291,11 +1299,13 @@ def main():
                             font-weight:bold;
                             margin-top:10px;
                         ">
-                            A Taxa de Cancelamento Ultrapassou a Meta de 0,75%.<br>
+                            Principal Motivo de Cancelamento que teve mais Impacto:<br>
+                            👉 {motivo_principal}
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
+
             
         with col2:
             # Gráfico de Evolução da Taxa de Cancelamento {ano_atual}
@@ -3654,6 +3664,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
