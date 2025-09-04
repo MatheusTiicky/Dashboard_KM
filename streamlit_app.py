@@ -524,11 +524,16 @@ def main():
     
     # ✅ Agora o dicionário está sempre disponível
     meses_abrev = {
-        "jan": "Jan", "fev": "Fev", "mar": "Mar",
-        "abr": "Abr", "mai": "Mai", "jun": "Jun",
-        "jul": "Jul", "ago": "Ago", "set": "Set",
-        "out": "Out", "nov": "Nov", "dez": "Dez"
-    }
+    # Português
+    "jan": "Jan", "fev": "Fev", "mar": "Mar",
+    "abr": "Abr", "mai": "Mai", "jun": "Jun",
+    "jul": "Jul", "ago": "Ago", "set": "Set",
+    "out": "Out", "nov": "Nov", "dez": "Dez",
+
+    # Inglês
+    "feb": "Fev", "apr": "Abr", "may": "Mai", "aug": "Ago",
+    "sep": "Set", "oct": "Out", "dec": "Dez"
+}
     
     # Sidebar com filtros
     st.sidebar.header("🔍 Filtros")
@@ -1988,8 +1993,10 @@ def main():
 
                 fig_trend_medias_temporal.update_xaxes(
                     tickvals=tickvals,
-                    ticktext=[meses_abrev[d.strftime("%b").lower()] + "/" + d.strftime("%Y")
-                            for d in tickvals]
+                    ticktext=[
+                        meses_abrev.get(d.strftime("%b").lower(), d.strftime("%b")) + "/" + d.strftime("%Y")
+                        for d in tickvals
+                    ]
                 )
 
                 # 👉 Ajustar eixo X somente quando for Diário + Todos
