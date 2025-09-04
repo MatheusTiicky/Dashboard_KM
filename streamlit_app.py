@@ -10,6 +10,31 @@ import calendar
 import locale
 import platform
 
+import streamlit as st
+import pandas as pd
+import plotly.graph_objects as go
+import locale, platform
+
+# ==============================================================
+# 🔹 Dicionários fixos de meses
+# ==============================================================
+
+# Tradução EN -> PT (abreviações usadas pelo strftime %b)
+MESES_MAP_ABREV = {
+    "Jan": "Jan", "Feb": "Fev", "Mar": "Mar",
+    "Apr": "Abr", "May": "Mai", "Jun": "Jun",
+    "Jul": "Jul", "Aug": "Ago", "Sep": "Set",
+    "Oct": "Out", "Nov": "Nov", "Dec": "Dez"
+}
+
+# Mapeamento de nome completo -> posição do mês (para denominadores fixos)
+MESES_MAP_POS = {
+    "JANEIRO": 1, "FEVEREIRO": 2, "MARÇO": 3, "ABRIL": 4,
+    "MAIO": 5, "JUNHO": 6, "JULHO": 7, "AGOSTO": 8,
+    "SETEMBRO": 9, "OUTUBRO": 10, "NOVEMBRO": 11, "DEZEMBRO": 12
+}
+
+
 # Ajuste de locale para português (funciona em Windows, Linux e Mac)
 so = platform.system()
 try:
@@ -1300,19 +1325,12 @@ def main():
                 df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
 
                 # 🔹 Força meses em PT-BR no eixo X
-                MESES_MAP = {
-                    "Jan": "Jan", "Feb": "Fev", "Mar": "Mar",
-                    "Apr": "Abr", "May": "Mai", "Jun": "Jun",
-                    "Jul": "Jul", "Aug": "Ago", "Sep": "Set",
-                    "Oct": "Out", "Nov": "Nov", "Dec": "Dez"
-                }
-
                 df_evolucao['Mes'] = (
-                    df_evolucao.index.strftime('%b/%y')
-                    .to_series()                          # 🔹 converte para Series
-                    .replace(MESES_MAP, regex=True)       # 🔹 aplica o dicionário
-                    .values                               # 🔹 volta para array
+                    df_evolucao.index.strftime('%b').map(MESES_MAP_ABREV)  # traduz abreviação
+                    + '/' +
+                    df_evolucao.index.strftime('%y')                       # concatena ano
                 )
+
 
 
                 df_evolucao = df_evolucao.reset_index(drop=True)
