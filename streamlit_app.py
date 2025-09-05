@@ -3209,11 +3209,18 @@ def main():
         
             # Ajustar layout do gráfico (altura maior e formato do eixo X)
             fig_ranking.update_layout(
-                height=700,  # aumenta a altura
+                height=700,
                 showlegend=False,
                 xaxis=dict(
-                    tickformat=",",  # força separador de milhar
+                    tickformat=",",
                     tickprefix="",
+                    tickfont=dict(size=14)  # aumenta fonte eixo X
+                ),
+                yaxis=dict(
+                    tickfont=dict(size=16)  # aumenta fonte dos nomes dos usuários
+                ),
+                title=dict(
+                    font=dict(size=20)  # aumenta fonte do título
                 )
             )
         
@@ -3727,6 +3734,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
