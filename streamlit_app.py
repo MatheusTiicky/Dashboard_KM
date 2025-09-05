@@ -3203,7 +3203,7 @@ def main():
         
             # Formatar os números com ponto como separador de milhar
             fig_ranking.update_traces(
-                texttemplate='%{text:,.0f}'.replace(",", "."),
+                texttemplate='%{text:,.0f}',  # Mantém o template padrão por enquanto
                 textposition='outside',
                 textfont=dict(size=18, color="white")
             )
@@ -3738,6 +3738,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
