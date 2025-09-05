@@ -3207,6 +3207,11 @@ def main():
                 textposition='outside',
                 textfont=dict(size=18, color="white")
             )
+
+            # Adiciona uma configuração de locale para forçar o ponto como separador de milhar
+            fig_ranking.update_layout(
+                separators='.,' # Define: '.' para milhar e ',' para decimal
+            )
         
             # Ajustar layout do gráfico
             fig_ranking.update_layout(
@@ -3738,6 +3743,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
