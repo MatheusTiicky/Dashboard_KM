@@ -3179,7 +3179,7 @@ def main():
         # Ranking de Usuários
         if usuario_selecionado == 'Todos':
             st.subheader("📊 Ranking de Usuários")
-        
+
         if usuario_selecionado == 'Todos':
             ranking_usuarios = (
                 df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"]
@@ -3198,47 +3198,43 @@ def main():
                 title="Top 10 Usuários por Emissões",
                 color='Total de Emissões',
                 color_continuous_scale='Blues',
-                text='Total de Emissões'
+                text='Total de Emissões' # Usamos o valor numérico aqui
             )
         
             # Formatar os números com ponto como separador de milhar
             fig_ranking.update_traces(
-                texttemplate='%{text:,.0f}',  # Mantém o template padrão por enquanto
+                # O template agora usa o formato de número do layout
+                texttemplate='%{text:,.0f}', 
                 textposition='outside',
                 textfont=dict(size=18, color="white")
             )
-
-            # Adiciona uma configuração de locale para forçar o ponto como separador de milhar
-            fig_ranking.update_layout(
-                separators='.,' # Define: '.' para milhar e ',' para decimal
-            )
         
-            # Ajustar layout do gráfico
+            # --- CORREÇÃO PRINCIPAL AQUI ---
+            # Unificar todas as configurações em uma única chamada update_layout
             fig_ranking.update_layout(
                 height=700,
                 showlegend=False,
+                separators='.,',  # Define: '.' para milhar e ',' para decimal
                 xaxis=dict(
-                    tickformat=",",
+                    tickformat=".,", # Aplica o formato também no eixo X
                     tickprefix="",
                     tickfont=dict(size=14)
                 ),
                 yaxis=dict(
-                    tickfont=dict(size=16),  # <--- VÍRGULA ADICIONADA AQUI
-                    # Adicione esta linha para ordenar o eixo Y em ordem decrescente
+                    tickfont=dict(size=16),
                     categoryorder='total ascending' 
                 ),
                 title=dict(
                     font=dict(size=20)
                 )
             )
-
         
-            # Força separador de milhar no eixo X com ponto
+            # O bloco update_xaxes não é mais estritamente necessário,
+            # pois a formatação já foi definida no update_layout.
+            # Mas podemos mantê-lo para outras customizações se precisar.
             fig_ranking.update_xaxes(
-                tickformat=",",
                 ticklabelposition="outside",
-                tickfont=dict(size=12),
-                separatethousands=True  # coloca separador de milhar
+                tickfont=dict(size=12)
             )
         
             st.plotly_chart(fig_ranking, use_container_width=True)
@@ -3743,6 +3739,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
