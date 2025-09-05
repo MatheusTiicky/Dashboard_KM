@@ -3177,9 +3177,10 @@ def main():
                 st.markdown("---")
 
         # Ranking de Usuários
+        # Ranking de Usuários
         if usuario_selecionado == 'Todos':
             st.subheader("📊 Ranking de Usuários")
-
+        
         if usuario_selecionado == 'Todos':
             ranking_usuarios = (
                 df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"]
@@ -3190,6 +3191,10 @@ def main():
             )
             ranking_usuarios.columns = ['Usuário', 'Total de Emissões']
             
+            # --- ALTERAÇÃO PRINCIPAL AQUI ---
+            # 1. Crie uma nova coluna com o texto já formatado com ponto.
+            ranking_usuarios['Texto_Formatado'] = ranking_usuarios['Total de Emissões'].apply(lambda x: f'{x:,.0f}'.replace(',', '.'))
+        
             fig_ranking = px.bar(
                 ranking_usuarios,
                 x='Total de Emissões',
@@ -3198,23 +3203,21 @@ def main():
                 title="Top 10 Usuários por Emissões",
                 color='Total de Emissões',
                 color_continuous_scale='Blues',
-                text='Total de Emissões' # Usamos o valor numérico aqui
+                # 2. Use a nova coluna de texto formatado para os rótulos.
+                text='Texto_Formatado' 
             )
         
-            # Formatar os números com ponto como separador de milhar
+            # 3. Remova o 'texttemplate' de update_traces, pois o texto já está pronto.
             fig_ranking.update_traces(
-                # O template agora usa o formato de número do layout
-                texttemplate='%{text:,.0f}', 
                 textposition='outside',
                 textfont=dict(size=18, color="white")
             )
         
-            # --- CORREÇÃO PRINCIPAL AQUI ---
             # Unificar todas as configurações em uma única chamada update_layout
             fig_ranking.update_layout(
                 height=700,
                 showlegend=False,
-                separators='.,',  # Define: '.' para milhar e ',' para decimal
+                separators='.,',  # Mantém para formatar os eixos
                 xaxis=dict(
                     tickformat=".,", # Aplica o formato também no eixo X
                     tickprefix="",
@@ -3227,14 +3230,6 @@ def main():
                 title=dict(
                     font=dict(size=20)
                 )
-            )
-        
-            # O bloco update_xaxes não é mais estritamente necessário,
-            # pois a formatação já foi definida no update_layout.
-            # Mas podemos mantê-lo para outras customizações se precisar.
-            fig_ranking.update_xaxes(
-                ticklabelposition="outside",
-                tickfont=dict(size=12)
             )
         
             st.plotly_chart(fig_ranking, use_container_width=True)
@@ -3739,6 +3734,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
