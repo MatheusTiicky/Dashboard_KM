@@ -1798,20 +1798,26 @@ def main():
                     ticktext = [f"{dt.strftime('%d')}/{dt.strftime('%b').capitalize()}" for dt in tickvals]
 
                 elif granularidade_emissoes_temporal == "Mensal":
-                    # Caso 3: Mensal → mês/ano
+                    # Caso 3: Mensal → mês por extenso em português
                     tickvals = df_trend_emissoes_temporal['DATA_EMISSÃO'].unique()
-                    ticktext = [pd.to_datetime(dt).strftime('%b/%y').capitalize() for dt in tickvals]
-
+                    ticktext = [
+                        MESES_MAP_COMPLETO[pd.to_datetime(dt).strftime('%B')]
+                        for dt in tickvals
+                    ]
+                
                 elif granularidade_emissoes_temporal == "Semanal":
-                    # Caso 4: Semanal → apenas mês/ano (um rótulo por mês)
+                    # Caso 4: Semanal → mês por extenso (um rótulo por mês)
                     tickvals = (
                         df_trend_emissoes_temporal['DATA_EMISSÃO']
                         .dt.to_period("M")
                         .drop_duplicates()
                         .dt.start_time
                     )
-                    ticktext = [dt.strftime('%b/%y').capitalize() for dt in tickvals]
-
+                    ticktext = [
+                        MESES_MAP_COMPLETO[dt.strftime('%B')]
+                        for dt in tickvals
+                    ]
+                
                 fig_trend_emissoes_temporal.update_xaxes(
                     tickvals=tickvals,
                     ticktext=ticktext
@@ -3664,6 +3670,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
