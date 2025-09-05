@@ -1932,7 +1932,10 @@ def main():
                 # Agrupa por semana ajustando para cair na sexta-feira
                 df_trend_medias_temporal = (
                     df_base_medias_temporal
-                    .assign(SEMANA=df_base_medias_temporal["DATA_EMISSÃO"] - pd.to_timedelta(df_base_medias_temporal["DATA_EMISSÃO"].dt.weekday - 4, unit="D"))
+                    .assign(
+                        SEMANA=df_base_medias_temporal["DATA_EMISSÃO"]
+                        - pd.to_timedelta(df_base_medias_temporal["DATA_EMISSÃO"].dt.weekday - 4, unit="D")
+                    )
                     .groupby("SEMANA")["CTRC_EMITIDO"].mean()
                     .reset_index()
                     .rename(columns={"SEMANA": "DATA_EMISSÃO"})
@@ -1940,16 +1943,37 @@ def main():
                 periodo_label_medias = "semanas"
                 future_periods_medias = 4
                 show_text_medias = True
-
+            
+                # 👉 Se for "Todos", mostra apenas o mês em PT-BR
+                if mes_selecionado == "Todos":
+                    df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%B")
+                    df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["Mes"].map(MESES_MAP_COMPLETO)
+                    df_trend_medias_temporal["Ano"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.year.astype(str)
+                    df_trend_medias_temporal["label"] = df_trend_medias_temporal["Mes"]
+                else:
+                    df_trend_medias_temporal["label"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%d/%m/%Y")
+            
             else:  # Mensal
-                df_trend_medias_temporal = (df_base_medias_temporal
-                                           .assign(MES_REF=df_base_medias_temporal["DATA_EMISSÃO"].dt.to_period("M").apply(lambda r: r.start_time))
-                                           .groupby("MES_REF")["CTRC_EMITIDO"].mean()
-                                           .reset_index()
-                                           .rename(columns={"MES_REF": "DATA_EMISSÃO"}))
+                df_trend_medias_temporal = (
+                    df_base_medias_temporal
+                    .assign(MES_REF=df_base_medias_temporal["DATA_EMISSÃO"].dt.to_period("M").apply(lambda r: r.start_time))
+                    .groupby("MES_REF")["CTRC_EMITIDO"].mean()
+                    .reset_index()
+                    .rename(columns={"MES_REF": "DATA_EMISSÃO"})
+                )
                 periodo_label_medias = "meses"
                 future_periods_medias = 3
                 show_text_medias = True
+            
+                # 👉 Se for "Todos", mostra apenas o mês em PT-BR
+                if mes_selecionado == "Todos":
+                    df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%B")
+                    df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["Mes"].map(MESES_MAP_COMPLETO)
+                    df_trend_medias_temporal["Ano"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.year.astype(str)
+                    df_trend_medias_temporal["label"] = df_trend_medias_temporal["Mes"]
+                else:
+                    df_trend_medias_temporal["label"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%d/%m/%Y")
+
 
             # Calcular previsão para médias de emissões
             if len(df_trend_medias_temporal) >= 2:
@@ -3670,6 +3694,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
