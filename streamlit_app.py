@@ -3208,24 +3208,25 @@ def main():
                 textfont=dict(size=18, color="white")
             )
         
-            # Ajustar layout do gráfico (altura maior e formato do eixo X)
+            # Ajustar layout do gráfico
             fig_ranking.update_layout(
                 height=700,
                 showlegend=False,
                 xaxis=dict(
                     tickformat=",",
                     tickprefix="",
-                    tickfont=dict(size=14)  # aumenta fonte eixo X
+                    tickfont=dict(size=14)
                 ),
                 yaxis=dict(
-                    tickfont=dict(size=16)  # aumenta fonte dos nomes dos usuários
+                    tickfont=dict(size=16),  # <--- VÍRGULA ADICIONADA AQUI
                     # Adicione esta linha para ordenar o eixo Y em ordem decrescente
                     categoryorder='total ascending' 
                 ),
                 title=dict(
-                    font=dict(size=20)  # aumenta fonte do título
+                    font=dict(size=20)
                 )
             )
+
         
             # Força separador de milhar no eixo X com ponto
             fig_ranking.update_xaxes(
@@ -3737,6 +3738,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
