@@ -10,31 +10,6 @@ import calendar
 import locale
 import platform
 
-import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-import locale, platform
-
-# ==============================================================
-# 🔹 Dicionários fixos de meses
-# ==============================================================
-
-# Tradução EN -> PT (abreviações usadas pelo strftime %b)
-MESES_MAP_COMPLETO = {
-    "January": "JANEIRO", "February": "FEVEREIRO", "March": "MARÇO",
-    "April": "ABRIL", "May": "MAIO", "June": "JUNHO",
-    "July": "JULHO", "August": "AGOSTO", "September": "SETEMBRO",
-    "October": "OUTUBRO", "November": "NOVEMBRO", "December": "DEZEMBRO"
-}
-
-# Mapeamento de nome completo -> posição do mês (para denominadores fixos)
-MESES_MAP_POS = {
-    "JANEIRO": 1, "FEVEREIRO": 2, "MARÇO": 3, "ABRIL": 4,
-    "MAIO": 5, "JUNHO": 6, "JULHO": 7, "AGOSTO": 8,
-    "SETEMBRO": 9, "OUTUBRO": 10, "NOVEMBRO": 11, "DEZEMBRO": 12
-}
-
-
 # Ajuste de locale para português (funciona em Windows, Linux e Mac)
 so = platform.system()
 try:
@@ -1260,29 +1235,21 @@ def main():
 
                 else:
                     # 🚨 Status acima da meta (tarja preta piscando)
-
-                    # 👉 Pega o motivo mais frequente nos cancelamentos filtrados
-                    motivo_principal = (
-                        cancelamentos_filtrado["MOTIVO"]
-                        .value_counts()
-                        .idxmax() if not cancelamentos_filtrado.empty else "Motivo não disponível"
-                    )
-
                     st.markdown(
-                        f"""
+                        """
                         <style>
-                        @keyframes blink {{
-                            0%   {{ background-color: black; }}
-                            50%  {{ background-color: #333; }}
-                            100% {{ background-color: black; }}
-                        }}
-                        .tarja-blink {{
+                        @keyframes blink {
+                            0%   { background-color: black; }
+                            50%  { background-color: #333; }
+                            100% { background-color: black; }
+                        }
+                        .tarja-blink {
                             animation: blink 1s infinite;
                             padding: 6px 14px;
                             border-radius: 8px;
                             display: inline-block;
                             font-weight: bold;
-                        }}
+                        }
                         </style>
 
                         <div style="text-align:center; margin-top:10px; font-size:20px; font-weight:bold;">
@@ -1299,13 +1266,11 @@ def main():
                             font-weight:bold;
                             margin-top:10px;
                         ">
-                            Principal Motivo de Cancelamento:<br>
-                            👉 {motivo_principal}
+                            A Taxa de Cancelamento Ultrapassou a Meta de 0,75%.<br>
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
-
             
         with col2:
             # Gráfico de Evolução da Taxa de Cancelamento {ano_atual}
@@ -1330,20 +1295,8 @@ def main():
                 
                 df_evolucao['Cancelamentos'] = cancelamentos_mensais.reindex(meses_ano, fill_value=0)
                 df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
-                
-                df_evolucao['Cancelamentos'] = cancelamentos_mensais.reindex(meses_ano, fill_value=0)
-                df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
-
-                df_evolucao['Mes'] = (
-                    df_evolucao.index.strftime('%B')  # nomes em inglês
-                    .map(MESES_MAP_COMPLETO)          # traduz para português
-                )
-
-
-
-
+                df_evolucao['Mes'] = df_evolucao.index.strftime('%b/%y').str.title()
                 df_evolucao = df_evolucao.reset_index(drop=True)
-
 
                 fig_evolucao_taxa = go.Figure()
                 fig_evolucao_taxa.add_trace(go.Scatter(
@@ -1370,8 +1323,6 @@ def main():
 
                 # Pega o valor máximo da taxa para definir limite superior com folga
                 y_max = df_evolucao['Taxa_Cancelamento'].max() * 1.3  # 30% a mais de espaço
-
-                
 
                 fig_evolucao_taxa.update_layout(
                     xaxis_title='',
@@ -1924,15 +1875,11 @@ def main():
                 periodo_label_medias = "dias"
                 future_periods_medias = 7
                 show_text_medias = False
-
             elif granularidade_medias_temporal == "Semanal":
                 # Agrupa por semana ajustando para cair na sexta-feira
                 df_trend_medias_temporal = (
                     df_base_medias_temporal
-                    .assign(
-                        SEMANA=df_base_medias_temporal["DATA_EMISSÃO"]
-                        - pd.to_timedelta(df_base_medias_temporal["DATA_EMISSÃO"].dt.weekday - 4, unit="D")
-                    )
+                    .assign(SEMANA=df_base_medias_temporal["DATA_EMISSÃO"] - pd.to_timedelta(df_base_medias_temporal["DATA_EMISSÃO"].dt.weekday - 4, unit="D"))
                     .groupby("SEMANA")["CTRC_EMITIDO"].mean()
                     .reset_index()
                     .rename(columns={"SEMANA": "DATA_EMISSÃO"})
@@ -1941,36 +1888,15 @@ def main():
                 future_periods_medias = 4
                 show_text_medias = True
 
-                # 👉 Se for "Todos", mostra apenas o mês em PT-BR
-                if mes_selecionado == "Todos":
-                    df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%B")
-                    df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["Mes"].map(MESES_MAP_COMPLETO)
-                    df_trend_medias_temporal["Ano"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.year.astype(str)
-                    df_trend_medias_temporal["label"] = df_trend_medias_temporal["Mes"]
-                else:
-                    df_trend_medias_temporal["label"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%d/%m/%Y")
-
             else:  # Mensal
-                df_trend_medias_temporal = (
-                    df_base_medias_temporal
-                    .assign(MES_REF=df_base_medias_temporal["DATA_EMISSÃO"].dt.to_period("M").apply(lambda r: r.start_time))
-                    .groupby("MES_REF")["CTRC_EMITIDO"].mean()
-                    .reset_index()
-                    .rename(columns={"MES_REF": "DATA_EMISSÃO"})
-                )
+                df_trend_medias_temporal = (df_base_medias_temporal
+                                           .assign(MES_REF=df_base_medias_temporal["DATA_EMISSÃO"].dt.to_period("M").apply(lambda r: r.start_time))
+                                           .groupby("MES_REF")["CTRC_EMITIDO"].mean()
+                                           .reset_index()
+                                           .rename(columns={"MES_REF": "DATA_EMISSÃO"}))
                 periodo_label_medias = "meses"
                 future_periods_medias = 3
                 show_text_medias = True
-
-                # 👉 Se for "Todos", mostra apenas o mês em PT-BR
-                if mes_selecionado == "Todos":
-                    df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%B")
-                    df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["Mes"].map(MESES_MAP_COMPLETO)
-                    df_trend_medias_temporal["Ano"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.year.astype(str)
-                    df_trend_medias_temporal["label"] = df_trend_medias_temporal["Mes"]
-                else:
-                    df_trend_medias_temporal["label"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%d/%m/%Y")
-
 
             # Calcular previsão para médias de emissões
             if len(df_trend_medias_temporal) >= 2:
@@ -3115,14 +3041,14 @@ def main():
                         icone_performance = "🏆"
                         cor_performance = "#22c55e"  # Verde
                         texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
-                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} Emissões a mais"
+                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} emissões a mais"
 
                     elif diferenca_abs < 0:
                         vencedor = usuario_b
                         icone_performance = "🏆"
                         cor_performance = "#22c55e"
                         texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
-                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} Emissões a mais"
+                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} emissões a mais"
 
                     else:
                         icone_performance = "🤝"
@@ -3173,56 +3099,26 @@ def main():
 
                 st.markdown("---")
 
- 
-
-    if usuario_selecionado == 'Todos':
-        ranking_usuarios = (
-            df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"]
-            .sum()
-            .sort_values(ascending=False)
-            .head(10)
-            .reset_index()
-        )
-        ranking_usuarios.columns = ['Usuário', 'Total de Emissões']
-        
-        fig_ranking = px.bar(
-            ranking_usuarios,
-            x='Total de Emissões',
-            y='Usuário',
-            orientation='h',
-            title="Top 10 Usuários por Emissões",
-            color='Total de Emissões',
-            color_continuous_scale='Blues',
-            text='Total de Emissões'
-        )
-
-        # Formatar os números com ponto como separador de milhar
-        fig_ranking.update_traces(
-            texttemplate='%{text:,.0f}'.replace(",", "."),
-            textposition='outside'
-        )
-
-        # Ajustar layout do gráfico (altura maior e formato do eixo X)
-        fig_ranking.update_layout(
-            height=700,  # aumenta a altura
-            showlegend=False,
-            xaxis=dict(
-                tickformat=",",  # força separador de milhar
-                tickprefix="",
+        # Ranking de Usuários
+        if usuario_selecionado == 'Todos':
+            st.subheader("📊 Ranking de Usuários")
+        if usuario_selecionado == 'Todos':
+            ranking_usuarios = df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"].sum().sort_values(ascending=False).head(10).reset_index()
+            ranking_usuarios.columns = ['Usuário', 'Total de Emissões']
+            
+            fig_ranking = px.bar(
+                ranking_usuarios,
+                x='Total de Emissões',
+                y='Usuário',
+                orientation='h',
+                title="Top 10 Usuários por Emissões",
+                color='Total de Emissões',
+                color_continuous_scale='Blues',
+                text='Total de Emissões'
             )
-        )
-
-        # Força separador de milhar no eixo X com ponto
-        fig_ranking.update_xaxes(
-            tickformat=",",
-            ticklabelposition="outside",
-            tickfont=dict(size=12),
-            separatethousands=True  # coloca separador de milhar
-        )
-
-        st.plotly_chart(fig_ranking, use_container_width=True)
-
-        
+            fig_ranking.update_traces(texttemplate='%{text:,}', textposition='outside')
+            fig_ranking.update_layout(height=500, showlegend=False)
+            st.plotly_chart(fig_ranking, use_container_width=True)
         # Distribuição por Expedição
         if usuario_selecionado == 'Todos':
             st.subheader("🚛 Distribuição por Expedição")
@@ -3236,7 +3132,6 @@ def main():
                 title="Distribuição de Emissões por Expedição"
             )
             st.plotly_chart(fig_exp, use_container_width=True)
-
     with tab4:
         st.header("✖️ Cancelamentos")
         
