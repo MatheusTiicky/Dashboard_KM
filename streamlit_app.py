@@ -3219,6 +3219,8 @@ def main():
                 ),
                 yaxis=dict(
                     tickfont=dict(size=16)  # aumenta fonte dos nomes dos usuários
+                    # Adicione esta linha para ordenar o eixo Y em ordem decrescente
+                    categoryorder='total ascending' 
                 ),
                 title=dict(
                     font=dict(size=20)  # aumenta fonte do título
@@ -3735,6 +3737,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
