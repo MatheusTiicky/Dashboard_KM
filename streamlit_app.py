@@ -1260,14 +1260,14 @@ def main():
 
                 else:
                     # 🚨 Status acima da meta (tarja preta piscando)
-                
+
                     # 👉 Pega o motivo mais frequente nos cancelamentos filtrados
                     motivo_principal = (
                         cancelamentos_filtrado["MOTIVO"]
                         .value_counts()
                         .idxmax() if not cancelamentos_filtrado.empty else "Motivo não disponível"
                     )
-                
+
                     st.markdown(
                         f"""
                         <style>
@@ -1284,11 +1284,11 @@ def main():
                             font-weight: bold;
                         }}
                         </style>
-                
+
                         <div style="text-align:center; margin-top:10px; font-size:20px; font-weight:bold;">
                             🚨 <span class="tarja-blink" style="color:#ef4444;">Status: ACIMA DA META de 0.75%</span>
                         </div>
-                
+
                         <div style="
                             background-color:#dc2626;
                             color:white;
@@ -1370,6 +1370,8 @@ def main():
 
                 # Pega o valor máximo da taxa para definir limite superior com folga
                 y_max = df_evolucao['Taxa_Cancelamento'].max() * 1.3  # 30% a mais de espaço
+
+                
 
                 fig_evolucao_taxa.update_layout(
                     xaxis_title='',
@@ -1798,26 +1800,20 @@ def main():
                     ticktext = [f"{dt.strftime('%d')}/{dt.strftime('%b').capitalize()}" for dt in tickvals]
 
                 elif granularidade_emissoes_temporal == "Mensal":
-                    # Caso 3: Mensal → mês por extenso em português
+                    # Caso 3: Mensal → mês/ano
                     tickvals = df_trend_emissoes_temporal['DATA_EMISSÃO'].unique()
-                    ticktext = [
-                        MESES_MAP_COMPLETO[pd.to_datetime(dt).strftime('%B')]
-                        for dt in tickvals
-                    ]
-                
+                    ticktext = [pd.to_datetime(dt).strftime('%b/%y').capitalize() for dt in tickvals]
+
                 elif granularidade_emissoes_temporal == "Semanal":
-                    # Caso 4: Semanal → mês por extenso (um rótulo por mês)
+                    # Caso 4: Semanal → apenas mês/ano (um rótulo por mês)
                     tickvals = (
                         df_trend_emissoes_temporal['DATA_EMISSÃO']
                         .dt.to_period("M")
                         .drop_duplicates()
                         .dt.start_time
                     )
-                    ticktext = [
-                        MESES_MAP_COMPLETO[dt.strftime('%B')]
-                        for dt in tickvals
-                    ]
-                
+                    ticktext = [dt.strftime('%b/%y').capitalize() for dt in tickvals]
+
                 fig_trend_emissoes_temporal.update_xaxes(
                     tickvals=tickvals,
                     ticktext=ticktext
@@ -1928,6 +1924,7 @@ def main():
                 periodo_label_medias = "dias"
                 future_periods_medias = 7
                 show_text_medias = False
+
             elif granularidade_medias_temporal == "Semanal":
                 # Agrupa por semana ajustando para cair na sexta-feira
                 df_trend_medias_temporal = (
@@ -1943,7 +1940,7 @@ def main():
                 periodo_label_medias = "semanas"
                 future_periods_medias = 4
                 show_text_medias = True
-            
+
                 # 👉 Se for "Todos", mostra apenas o mês em PT-BR
                 if mes_selecionado == "Todos":
                     df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%B")
@@ -1952,7 +1949,7 @@ def main():
                     df_trend_medias_temporal["label"] = df_trend_medias_temporal["Mes"]
                 else:
                     df_trend_medias_temporal["label"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%d/%m/%Y")
-            
+
             else:  # Mensal
                 df_trend_medias_temporal = (
                     df_base_medias_temporal
@@ -1964,7 +1961,7 @@ def main():
                 periodo_label_medias = "meses"
                 future_periods_medias = 3
                 show_text_medias = True
-            
+
                 # 👉 Se for "Todos", mostra apenas o mês em PT-BR
                 if mes_selecionado == "Todos":
                     df_trend_medias_temporal["Mes"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.strftime("%B")
@@ -2860,385 +2857,766 @@ def main():
 
 
     with tab3:
-            with tab3:
-                st.header("⚡ Produtividade")
-                
-                # Criar cópias dos dataframes filtrados globalmente para uso específico da aba
-                df_tab3 = df_filtrado.copy()
-                cancelamentos_tab3 = cancelamentos_filtrado.copy()
-                
-                # KPIs de Produtividade
-                st.subheader("📊 Indicadores de Produtividade")
-                
-                # Calculando KPIs de produtividade
-                total_emissoes_periodo = df_tab3["CTRC_EMITIDO"].sum()
-                media_diaria_periodo = df_tab3.groupby("DATA_EMISSÃO")["CTRC_EMITIDO"].sum().mean()
-                
-                # Usuário mais produtivo
-                if not df_tab3.empty:
-                    usuario_produtivo = df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"].sum().reset_index()
-                    usuario_top = usuario_produtivo.loc[usuario_produtivo['CTRC_EMITIDO'].idxmax()]
-                    nome_usuario_top = usuario_top['USUÁRIO']
-                    emissoes_usuario_top = usuario_top['CTRC_EMITIDO']
-                    
-                    # Expedição mais produtiva
-                    expedicao_produtiva = df_tab3.groupby("EXPEDIÇÃO")["CTRC_EMITIDO"].sum().reset_index()
-                    expedicao_top = expedicao_produtiva.loc[expedicao_produtiva['CTRC_EMITIDO'].idxmax()]
-                    nome_expedicao_top = expedicao_top['EXPEDIÇÃO']
-                    emissoes_expedicao_top = expedicao_top['CTRC_EMITIDO']
-                    
-                    # Total de usuários ativos
-                    total_usuarios = df_tab3["USUÁRIO"].nunique()
-                else:
-                    nome_usuario_top = "N/A"
-                    emissoes_usuario_top = 0
-                    nome_expedicao_top = "N/A"
-                    emissoes_expedicao_top = 0
-                    total_usuarios = 0
+        st.header("⚡ Produtividade")
         
-                col1, col2, col3, col4, col5 = st.columns(5)
+        # Criar cópias dos dataframes filtrados globalmente para uso específico da aba
+        df_tab3 = df_filtrado.copy()
+        cancelamentos_tab3 = cancelamentos_filtrado.copy()
+        
+        # KPIs de Produtividade
+        st.subheader("📊 Indicadores de Produtividade")
+        
+        # Calculando KPIs de produtividade
+        total_emissoes_periodo = df_tab3["CTRC_EMITIDO"].sum()
+        media_diaria_periodo = df_tab3.groupby("DATA_EMISSÃO")["CTRC_EMITIDO"].sum().mean()
+        
+        # Usuário mais produtivo
+        usuario_produtivo = df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"].sum().reset_index()
+        usuario_top = usuario_produtivo.loc[usuario_produtivo['CTRC_EMITIDO'].idxmax()]
+        nome_usuario_top = usuario_top['USUÁRIO']
+        emissoes_usuario_top = usuario_top['CTRC_EMITIDO']
+        
+        # Expedição mais produtiva
+        expedicao_produtiva = df_tab3.groupby("EXPEDIÇÃO")["CTRC_EMITIDO"].sum().reset_index()
+        expedicao_top = expedicao_produtiva.loc[expedicao_produtiva['CTRC_EMITIDO'].idxmax()]
+        nome_expedicao_top = expedicao_top['EXPEDIÇÃO']
+        emissoes_expedicao_top = expedicao_top['CTRC_EMITIDO']
+        
+        # Total de usuários ativos
+        total_usuarios = df_tab3["USUÁRIO"].nunique()
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon">📦</div>
+                <div class="kpi-value">{format_number(total_emissoes_periodo)}</div>
+                <div class="kpi-label">Total de Emissões<br>no período</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon">📈</div>
+                <div class="kpi-value">{format_number(media_diaria_periodo)}</div>
+                <div class="kpi-label">Média Diária<br>de emissões</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="kpi-card kpi-teal">
+                <div class="kpi-icon">👥</div>
+                <div class="kpi-value">{format_number(media_semanal_produtividade)}</div>
+                <div class="kpi-label">Média Semanal de Emissões</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="kpi-card kpi-purple">
+                <div class="kpi-icon">🥇</div>
+                <div class="kpi-value">{format_number(media_mensal_produtividade)}</div>
+                <div class="kpi-label">Média Mensal<br>de Emissões</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col5:
+            st.markdown(f"""
+            <div class="kpi-card kpi-orange">
+                <div class="kpi-icon">👤</div>
+                <div class="kpi-value">{total_usuarios}</div>
+                <div class="kpi-label">Usuários Ativos<br>no período</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # Top Performers
+        st.subheader("🏆 Top Performers")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="kpi-card kpi-indigo">
+                <div class="kpi-icon">🥇</div>
+                <div class="kpi-value">{nome_usuario_top}</div>
+                <div class="kpi-label">Usuário Mais Produtivo<br>({format_number(emissoes_usuario_top)} emissões)</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="kpi-card kpi-red">
+                <div class="kpi-icon">🚛</div>
+                <div class="kpi-value">{nome_expedicao_top}</div>
+                <div class="kpi-label">Expedição Mais Produtiva<br>({format_number(emissoes_expedicao_top)} emissões)</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        st.subheader("👥 Análise Comparativa de Usuários")
+        st.markdown("Selecione dois usuários para comparar a produtividade e o perfil de emissão.")
+
+        usuarios_disponiveis_tab3 = sorted(df_tab3["USUÁRIO"].unique())
+
+        if len(usuarios_disponiveis_tab3) < 2:
+            st.info("É necessário ter pelo menos dois usuários com dados no período selecionado para fazer uma comparação.")
+        else:
+            col_select1, col_select2 = st.columns(2)
+            with col_select1:
+                if 'usuario_a' not in st.session_state or st.session_state.usuario_a not in usuarios_disponiveis_tab3:
+                    st.session_state.usuario_a = usuarios_disponiveis_tab3[0]
                 
+                usuario_a = st.selectbox(
+                    "Selecione o Usuário A:",
+                    options=usuarios_disponiveis_tab3,
+                    index=usuarios_disponiveis_tab3.index(st.session_state.usuario_a),
+                    key="comp_user_a"
+                )
+                st.session_state.usuario_a = usuario_a
+
+            with col_select2:
+                opcoes_b = [u for u in usuarios_disponiveis_tab3 if u != usuario_a]
+                if not opcoes_b:
+                    st.warning("Não há outro usuário para comparar.")
+                    usuario_b = None
+                else:
+                    if 'usuario_b' not in st.session_state or st.session_state.usuario_b not in opcoes_b:
+                        st.session_state.usuario_b = opcoes_b[0]
+
+                    usuario_b = st.selectbox(
+                        "Selecione o Usuário B:",
+                        options=opcoes_b,
+                        index=opcoes_b.index(st.session_state.usuario_b),
+                        key="comp_user_b"
+                    )
+                    st.session_state.usuario_b = usuario_b
+
+            if usuario_a and usuario_b:
+                # Filtrar dados
+                dados_a = df_tab3[df_tab3["USUÁRIO"] == usuario_a]
+                dados_b = df_tab3[df_tab3["USUÁRIO"] == usuario_b]
+
+                total_a = dados_a["CTRC_EMITIDO"].sum()
+                total_b = dados_b["CTRC_EMITIDO"].sum()
+
+                media_diaria_a = dados_a.groupby(dados_a["DATA_EMISSÃO"].dt.date)["CTRC_EMITIDO"].sum().mean()
+                media_diaria_b = dados_b.groupby(dados_b["DATA_EMISSÃO"].dt.date)["CTRC_EMITIDO"].sum().mean()
+
+                # Calcular média mensal para os usuários A e B
+                media_mensal_a = dados_a.groupby(dados_a["DATA_EMISSÃO"].dt.to_period("M"))["CTRC_EMITIDO"].sum().mean() if not dados_a.empty else 0
+                media_mensal_b = dados_b.groupby(dados_b["DATA_EMISSÃO"].dt.to_period("M"))["CTRC_EMITIDO"].sum().mean() if not dados_b.empty else 0
+
+                variacao_total = ((total_a - total_b) / total_b * 100) if total_b > 0 else 0
+                variacao_media = ((media_diaria_a - media_diaria_b) / media_diaria_b * 100) if media_diaria_b > 0 else 0
+
+                # Badges coloridas para setas
+                def badge(valor):
+                    if valor > 0:
+                        return "<span style='background-color:limegreen; color:white; padding:2px 6px; border-radius:6px; font-weight:bold;'>▲</span>"
+                    elif valor < 0:
+                        return "<span style='background-color:red; color:white; padding:2px 6px; border-radius:6px; font-weight:bold;'>▼</span>"
+                    else:
+                        return "<span style='background-color:gray; color:white; padding:2px 6px; border-radius:6px; font-weight:bold;'>=</span>"
+
+                # --- KPIs em cartões ---
+
+                col1, col2 = st.columns(2)
+
                 with col1:
                     st.markdown(f"""
                     <div class="kpi-card kpi-blue">
-                        <div class="kpi-icon">📦</div>
-                        <div class="kpi-value">{format_number(total_emissoes_periodo)}</div>
-                        <div class="kpi-label">Total de Emissões  
-        no período</div>
+                        <div class="kpi-icon">👤</div>
+                        <div class="kpi-value">{format_number(total_a)}</div>
+                        <div class="kpi-label"><b>{usuario_a}<b><br>Total de Emissões</div>
                     </div>
                     """, unsafe_allow_html=True)
-                
-                with col2:
+
                     st.markdown(f"""
                     <div class="kpi-card kpi-green">
-                        <div class="kpi-icon">📈</div>
-                        <div class="kpi-value">{format_number(media_diaria_periodo)}</div>
-                        <div class="kpi-label">Média Diária  
-        de emissões</div>
+                        <div class="kpi-icon">📅</div>
+                        <div class="kpi-value">{media_diaria_a:.0f}</div>
+                        <div class="kpi-label"><b>{usuario_a}<b><br>Média Diária </div>
                     </div>
                     """, unsafe_allow_html=True)
-                
-                with col3:
-                    st.markdown(f"""
-                    <div class="kpi-card kpi-teal">
-                        <div class="kpi-icon">👥</div>
-                        <div class="kpi-value">{format_number(media_semanal_produtividade)}</div>
-                        <div class="kpi-label">Média Semanal de Emissões</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with col4:
+
                     st.markdown(f"""
                     <div class="kpi-card kpi-purple">
-                        <div class="kpi-icon">🥇</div>
-                        <div class="kpi-value">{format_number(media_mensal_produtividade)}</div>
-                        <div class="kpi-label">Média Mensal  
-        de Emissões</div>
+                        <div class="kpi-icon">🗓️</div>
+                        <div class="kpi-value">{media_mensal_a:.0f}</div>
+                        <div class="kpi-label"><b>{usuario_a}<b><br>Média Mensal</div>
                     </div>
                     """, unsafe_allow_html=True)
-                
-                with col5:
-                    st.markdown(f"""
-                    <div class="kpi-card kpi-orange">
-                        <div class="kpi-icon">👤</div>
-                        <div class="kpi-value">{total_usuarios}</div>
-                        <div class="kpi-label">Usuários Ativos  
-        no período</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-                st.markdown("---")
-        
-                # Top Performers
-                st.subheader("🏆 Top Performers")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown(f"""
-                    <div class="kpi-card kpi-indigo">
-                        <div class="kpi-icon">🥇</div>
-                        <div class="kpi-value">{nome_usuario_top}</div>
-                        <div class="kpi-label">Usuário Mais Produtivo  
-        ({format_number(emissoes_usuario_top)} emissões)</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with col2:
-                    st.markdown(f"""
-                    <div class="kpi-card kpi-red">
-                        <div class="kpi-icon">🚛</div>
-                        <div class="kpi-value">{nome_expedicao_top}</div>
-                        <div class="kpi-label">Expedição Mais Produtiva  
-        ({format_number(emissoes_expedicao_top)} emissões)</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-        
-                st.markdown("---")
-        
-                st.subheader("👥 Análise Comparativa de Usuários")
-                st.markdown("Selecione dois usuários para comparar a produtividade e o perfil de emissão.")
-        
-                usuarios_disponiveis_tab3 = sorted(df_tab3["USUÁRIO"].unique())
-        
-                if len(usuarios_disponiveis_tab3) < 2:
-                    st.info("É necessário ter pelo menos dois usuários com dados no período selecionado para fazer uma comparação.")
-                else:
-                    col_select1, col_select2 = st.columns(2)
-                    with col_select1:
-                        if 'usuario_a' not in st.session_state or st.session_state.usuario_a not in usuarios_disponiveis_tab3:
-                            st.session_state.usuario_a = usuarios_disponiveis_tab3[0]
-                        
-                        usuario_a = st.selectbox(
-                            "Selecione o Usuário A:",
-                            options=usuarios_disponiveis_tab3,
-                            index=usuarios_disponiveis_tab3.index(st.session_state.usuario_a),
-                            key="comp_user_a"
-                        )
-                        st.session_state.usuario_a = usuario_a
-        
-                    with col_select2:
-                        opcoes_b = [u for u in usuarios_disponiveis_tab3 if u != usuario_a]
-                        if not opcoes_b:
-                            st.warning("Não há outro usuário para comparar.")
-                            usuario_b = None
-                        else:
-                            if 'usuario_b' not in st.session_state or st.session_state.usuario_b not in opcoes_b:
-                                st.session_state.usuario_b = opcoes_b[0]
-        
-                            usuario_b = st.selectbox(
-                                "Selecione o Usuário B:",
-                                options=opcoes_b,
-                                index=opcoes_b.index(st.session_state.usuario_b),
-                                key="comp_user_b"
-                            )
-                            st.session_state.usuario_b = usuario_b
-        
-                    if usuario_a and usuario_b:
-                        dados_a = df_tab3[df_tab3["USUÁRIO"] == usuario_a]
-                        dados_b = df_tab3[df_tab3["USUÁRIO"] == usuario_b]
-        
-                        total_a = dados_a["CTRC_EMITIDO"].sum()
-                        total_b = dados_b["CTRC_EMITIDO"].sum()
-        
-                        media_diaria_a = dados_a.groupby(dados_a["DATA_EMISSÃO"].dt.date)["CTRC_EMITIDO"].sum().mean()
-                        media_diaria_b = dados_b.groupby(dados_b["DATA_EMISSÃO"].dt.date)["CTRC_EMITIDO"].sum().mean()
-        
-                        media_mensal_a = dados_a.groupby(dados_a["DATA_EMISSÃO"].dt.to_period("M"))["CTRC_EMITIDO"].sum().mean() if not dados_a.empty else 0
-                        media_mensal_b = dados_b.groupby(dados_b["DATA_EMISSÃO"].dt.to_period("M"))["CTRC_EMITIDO"].sum().mean() if not dados_b.empty else 0
-        
-                        col1, col2 = st.columns(2)
-        
-                        with col1:
-                            st.markdown(f"""
-                            <div class="kpi-card kpi-blue">
-                                <div class="kpi-icon">👤</div>
-                                <div class="kpi-value">{format_number(total_a)}</div>
-                                <div class="kpi-label"><b>{usuario_a}</b>  
-        Total de Emissões</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.markdown(f"""
-                            <div class="kpi-card kpi-green">
-                                <div class="kpi-icon">📅</div>
-                                <div class="kpi-value">{media_diaria_a:.0f}</div>
-                                <div class="kpi-label"><b>{usuario_a}</b>  
-        Média Diária</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.markdown(f"""
-                            <div class="kpi-card kpi-purple">
-                                <div class="kpi-icon">🗓️</div>
-                                <div class="kpi-value">{media_mensal_a:.0f}</div>
-                                <div class="kpi-label"><b>{usuario_a}</b>  
-        Média Mensal</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-        
-                        with col2:
-                            st.markdown(f"""
-                            <div class="kpi-card kpi-blue">
-                                <div class="kpi-icon">👤</div>
-                                <div class="kpi-value">{format_number(total_b)}</div>
-                                <div class="kpi-label"><b>{usuario_b}</b>  
-        Total de Emissões</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.markdown(f"""
-                            <div class="kpi-card kpi-green">
-                                <div class="kpi-icon">📅</div>
-                                <div class="kpi-value">{media_diaria_b:.0f}</div>
-                                <div class="kpi-label"><b>{usuario_b}</b>  
-        Média Diária</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            st.markdown(f"""
-                            <div class="kpi-card kpi-purple">
-                                <div class="kpi-icon">🗓️</div>
-                                <div class="kpi-value">{media_mensal_b:.0f}</div>
-                                <div class="kpi-label"><b>{usuario_b}</b>  
-        Média Mensal</div>
-                            </div>
-                            """, unsafe_allow_html=True)
-        
-                        st.markdown("### 💡 Insights da Comparação")
-                        
-                        def insight_card_v4(titulo, valor_a, valor_b, usuario_a, usuario_b, icone_titulo, cor_borda):
-                            if valor_a == 0 and valor_b == 0:
-                                diferenca_abs = 0
-                                percentual = 0
-                            elif valor_b == 0:
-                                diferenca_abs = valor_a
-                                percentual = 100.0
-                            elif valor_a == 0:
-                                diferenca_abs = -valor_b
-                                percentual = 100.0
-                            else:
-                                diferenca_abs = valor_a - valor_b
-                                percentual = (abs(diferenca_abs) / min(valor_a, valor_b)) * 100
-        
-                            if diferenca_abs > 0:
-                                vencedor = usuario_a
-                                icone_performance = "🏆"
-                                cor_performance = "#22c55e"
-                                texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
-                                texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} Emissões a mais"
-                            elif diferenca_abs < 0:
-                                vencedor = usuario_b
-                                icone_performance = "🏆"
-                                cor_performance = "#22c55e"
-                                texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
-                                texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} Emissões a mais"
-                            else:
-                                icone_performance = "🤝"
-                                cor_performance = "#9ca3af"
-                                texto_performance = "Desempenho Idêntico"
-                                texto_diferenca = ""
-        
-                            valor_a_fmt = f"{valor_a:,.0f}".replace(",", ".")
-                            valor_b_fmt = f"{valor_b:,.0f}".replace(",", ".")
-        
-                            st.markdown(f"""
-                            <div style="border: 2px solid {cor_borda}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center;">
-                                <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 6px;">{icone_titulo} {titulo}</div>
-                                <div style="font-size: 1.1rem; color:{cor_performance}; margin-bottom:4px;">
-                                    {icone_performance} {texto_performance}
-                                </div>
-                                {"<div style='font-size:1rem; color:#9ca3af;'>" + texto_diferenca + "</div>" if texto_diferenca else ""}
-                                <hr style="border: none; border-top: 1px solid #374151; margin: 10px 0;">
-                                <div style="font-size: 0.9rem; color: #d1d5db;">
-                                    {usuario_a.upper()}: <b>{valor_a_fmt}</b> | {usuario_b.upper()}: <b>{valor_b_fmt}</b>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            insight_card_v4("Total de Emissões", total_a, total_b, usuario_a, usuario_b, "📦", "#3b82f6")
-                        with col2:
-                            insight_card_v4("Média Diária", media_diaria_a, media_diaria_b, usuario_a, usuario_b, "📅", "#10b981")
-                        with col3:
-                            insight_card_v4("Média Mensal", media_mensal_a, media_mensal_b, usuario_a, usuario_b, "🗓️", "#8b5cf6")
-        
-                st.markdown("---")
-        
-                # Ranking de Usuários
-                if usuario_selecionado == 'Todos':
-                    st.subheader("📊 Ranking de Usuários")
-                    
-                    ranking_usuarios = (
-                        df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"]
-                        .sum()
-                        .sort_values(ascending=False)
-                        .head(10)
-                        .reset_index()
-                    )
-                    ranking_usuarios.columns = ['Usuário', 'Total de Emissões']
-                    
-                    ranking_usuarios['Texto_Formatado'] = ranking_usuarios['Total de Emissões'].apply(lambda x: f'{x:,.0f}'.replace(',', '.'))
-                
-                    fig_ranking = px.bar(
-                        ranking_usuarios,
-                        x='Total de Emissões',
-                        y='Usuário',
-                        orientation='h',
-                        title="Top 10 Usuários por Emissões",
-                        color='Total de Emissões',
-                        color_continuous_scale='Blues',
-                        text='Texto_Formatado' 
-                    )
-                
-                    fig_ranking.update_traces(
-                        textposition='outside',
-                        textfont=dict(size=18, color="white")
-                    )
-                
-                    fig_ranking.update_layout(
-                        height=700,
-                        showlegend=False,
-                        separators='.,',
-                        xaxis=dict(
-                            tickformat=".,",
-                            tickprefix="",
-                            tickfont=dict(size=14)
-                        ),
-                        yaxis=dict(
-                            tickfont=dict(size=16),
-                            categoryorder='total ascending' 
-                        ),
-                        title=dict(
-                            font=dict(size=20)
-                        )
-                    )
-                
-                    st.plotly_chart(fig_ranking, use_container_width=True)
-        
-                st.markdown("---")
-        
-                # Distribuição por Expedição (Emissões vs. Cancelamentos)
-                if usuario_selecionado == 'Todos':
-                    st.subheader("🚛 Distribuição por Expedição")
-        
-                    col1_pie, col2_pie = st.columns(2)
-        
-                    # Gráfico 1: Emissões por Expedição
-                    with col1_pie:
-                        dist_expedicao = df_tab3.groupby("EXPEDIÇÃO")["CTRC_EMITIDO"].sum().reset_index()
-                        
-                        fig_exp_emissao = px.pie(
-                            dist_expedicao,
-                            values="CTRC_EMITIDO",
-                            names="EXPEDIÇÃO",
-                            title="Distribuição de Emissões por Expedição",
-                            hole=.3
-                        )
-                        fig_exp_emissao.update_traces(
-                            textposition='inside', 
-                            textinfo='percent+label'
-                        )
-                        st.plotly_chart(fig_exp_emissao, use_container_width=True)
-        
-                    # Gráfico 2: Cancelamentos por Expedição
-                    with col2_pie:
-                        dist_canc_expedicao = cancelamentos_tab3.groupby("EXPEDIÇÃO").size().reset_index(name="Cancelamentos")
-                        
-                        if not dist_canc_expedicao.empty:
-                            fig_exp_cancelamento = px.pie(
-                                dist_canc_expedicao,
-                                values="Cancelamentos",
-                                names="EXPEDIÇÃO",
-                                title="Distribuição de Cancelamentos por Expedição",
-                                hole=.3,
-                                color_discrete_sequence=px.colors.sequential.Reds_r 
-                            )
-                            fig_exp_cancelamento.update_traces(
-                                textposition='inside', 
-                                textinfo='percent+label'
-                            )
-                            st.plotly_chart(fig_exp_cancelamento, use_container_width=True)
-                        else:
-                            st.info("Não há dados de cancelamento por expedição para exibir.")
 
+                    with col2:  # lado direito
+                        st.markdown(f"""
+                        <div class="kpi-card kpi-blue">
+                            <div class="kpi-icon">👤</div>
+                            <div class="kpi-value">{format_number(total_b)}</div>
+                            <div class="kpi-label"><b>{usuario_b}<b><br>Total de Emissões</div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        st.markdown(f"""
+                        <div class="kpi-card kpi-green">
+                            <div class="kpi-icon">📅</div>
+                            <div class="kpi-value">{media_diaria_b:.0f}</div>
+                            <div class="kpi-label"><b>{usuario_b}<b><br>Média Diária </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        st.markdown(f"""
+                        <div class="kpi-card kpi-purple">
+                            <div class="kpi-icon">🗓️</div>
+                            <div class="kpi-value">{media_mensal_b:.0f}</div>
+                            <div class="kpi-label"><b>{usuario_b}<b><br>Média Mensal </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                # Remover a seção de variação e insights lado a lado, pois o novo layout não a comporta
+                # As variações podem ser calculadas e exibidas de outra forma se necessário, mas não nos KPIs.
+                
+
+                # (Dentro da aba "Produtividade", após a seleção dos usuários A e B)
+
+                st.markdown("### 💡 Insights da Comparação")
+
+                # (Dentro da aba "Produtividade", antes da chamada das colunas dos insights)
+
+                # --- Função de Card de Insight v4 (com cálculo de percentual) ---
+                # --- Função de Card de Insight v4 (com cálculo de percentual) ---
+                def insight_card_v4(titulo, valor_a, valor_b, usuario_a, usuario_b, icone_titulo, cor_borda):
+                    """
+                    Gera um card de insight que calcula a diferença percentual e destaca o usuário superior.
+                    """
+                    # Evita divisão por zero se ambos os valores forem zero
+                    if valor_a == 0 and valor_b == 0:
+                        diferenca_abs = 0
+                        percentual = 0
+                    # Caso especial: um valor é zero e o outro não
+                    elif valor_b == 0:
+                        diferenca_abs = valor_a
+                        percentual = 100.0
+                    elif valor_a == 0:
+                        diferenca_abs = -valor_b
+                        percentual = 100.0
+                    else:
+                        diferenca_abs = valor_a - valor_b
+                        percentual = (abs(diferenca_abs) / min(valor_a, valor_b)) * 100
+
+                    # Define o vencedor e o texto da performance
+                    if diferenca_abs > 0:
+                        vencedor = usuario_a
+                        icone_performance = "🏆"
+                        cor_performance = "#22c55e"  # Verde
+                        texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
+                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} Emissões a mais"
+
+                    elif diferenca_abs < 0:
+                        vencedor = usuario_b
+                        icone_performance = "🏆"
+                        cor_performance = "#22c55e"
+                        texto_performance = f"{vencedor} foi <b>{percentual:.1f}%</b> superior"
+                        texto_diferenca = f"{format_number(round(abs(diferenca_abs)))} Emissões a mais"
+
+                    else:
+                        icone_performance = "🤝"
+                        cor_performance = "#9ca3af" # Cinza
+                        texto_performance = "Desempenho Idêntico"
+                        texto_diferenca = ""
+
+                    # Formata os valores
+                    valor_a_fmt = f"{valor_a:,.0f}".replace(",", ".")
+                    valor_b_fmt = f"{valor_b:,.0f}".replace(",", ".")
+
+                    # Renderização do card
+                    st.markdown(f"""
+                    <div style="border: 2px solid {cor_borda}; border-radius: 12px; padding: 16px; margin-bottom: 16px; text-align: center;">
+                        <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 6px;">{icone_titulo} {titulo}</div>
+                        <div style="font-size: 1.1rem; color:{cor_performance}; margin-bottom:4px;">
+                            {icone_performance} {texto_performance}
+                        </div>
+                        {"<div style='font-size:1rem; color:#9ca3af;'>" + texto_diferenca + "</div>" if texto_diferenca else ""}
+                        <hr style="border: none; border-top: 1px solid #374151; margin: 10px 0;">
+                        <div style="font-size: 0.9rem; color: #d1d5db;">
+                            {usuario_a.upper()}: <b>{valor_a_fmt}</b> | {usuario_b.upper()}: <b>{valor_b_fmt}</b>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # (Dentro da aba "Produtividade", após a definição das colunas)
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    insight_card_v4(
+                        "Total de Emissões", total_a, total_b, usuario_a, usuario_b,
+                        "📦", "#3b82f6"
+                    )
+
+                with col2:
+                    insight_card_v4(
+                        "Média Diária", media_diaria_a, media_diaria_b, usuario_a, usuario_b,
+                        "📅", "#10b981"
+                    )
+
+                with col3:
+                    insight_card_v4(
+                        "Média Mensal", media_mensal_a, media_mensal_b, usuario_a, usuario_b,
+                        "🗓️", "#8b5cf6"
+                    )
+
+                st.markdown("---")
+
+ 
+
+    if usuario_selecionado == 'Todos':
+        ranking_usuarios = (
+            df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"]
+            .sum()
+            .sort_values(ascending=False)
+            .head(10)
+            .reset_index()
+        )
+        ranking_usuarios.columns = ['Usuário', 'Total de Emissões']
+        
+        fig_ranking = px.bar(
+            ranking_usuarios,
+            x='Total de Emissões',
+            y='Usuário',
+            orientation='h',
+            title="Top 10 Usuários por Emissões",
+            color='Total de Emissões',
+            color_continuous_scale='Blues',
+            text='Total de Emissões'
+        )
+
+        # Formatar os números com ponto como separador de milhar
+        fig_ranking.update_traces(
+            texttemplate='%{text:,.0f}'.replace(",", "."),
+            textposition='outside'
+        )
+
+        # Ajustar layout do gráfico (altura maior e formato do eixo X)
+        fig_ranking.update_layout(
+            height=700,  # aumenta a altura
+            showlegend=False,
+            xaxis=dict(
+                tickformat=",",  # força separador de milhar
+                tickprefix="",
+            )
+        )
+
+        # Força separador de milhar no eixo X com ponto
+        fig_ranking.update_xaxes(
+            tickformat=",",
+            ticklabelposition="outside",
+            tickfont=dict(size=12),
+            separatethousands=True  # coloca separador de milhar
+        )
+
+        st.plotly_chart(fig_ranking, use_container_width=True)
+
+        
+        # Distribuição por Expedição
+        if usuario_selecionado == 'Todos':
+            st.subheader("🚛 Distribuição por Expedição")
+        if usuario_selecionado == 'Todos':
+            dist_expedicao = df_tab3.groupby("EXPEDIÇÃO")["CTRC_EMITIDO"].sum().reset_index()
+            
+            fig_exp = px.pie(
+                dist_expedicao,
+                values="CTRC_EMITIDO",
+                names="EXPEDIÇÃO",
+                title="Distribuição de Emissões por Expedição"
+            )
+            st.plotly_chart(fig_exp, use_container_width=True)
+
+    with tab4:
+        st.header("✖️ Cancelamentos")
+        
+        # Criar cópias dos dataframes filtrados globalmente para uso específico da aba
+        df_tab4 = df_filtrado.copy()
+        cancelamentos_tab4 = cancelamentos_filtrado.copy()
+        
+        # Calculando KPIs de Cancelamento
+        if not cancelamentos_tab4.empty:
+            total_cancelamentos_periodo = len(cancelamentos_tab4)
+            
+            # Média Diária de Cancelamentos
+            cancelamentos_diarios = cancelamentos_tab4.groupby(cancelamentos_tab4["DATA_CANCELADO"].dt.date).size()
+            media_diaria_cancelamentos = cancelamentos_diarios.mean()
+            
+            # Média Semanal de Cancelamentos
+            cancelamentos_semanais = cancelamentos_filtrado.groupby(cancelamentos_filtrado["DATA_CANCELADO"].dt.to_period("W")).size()
+            media_semanal_cancelamentos = cancelamentos_semanais.mean()
+            
+            # Média Mensal de Cancelamentos
+            cancelamentos_mensais = cancelamentos_filtrado.groupby(cancelamentos_filtrado["DATA_CANCELADO"].dt.to_period("M")).size()
+            media_mensal_cancelamentos = cancelamentos_mensais.mean()
+            
+            # Usuário com Mais Cancelamentos
+            usuario_mais_cancelamentos = cancelamentos_filtrado["USUARIO"].value_counts().idxmax()
+            qtd_usuario_mais_cancelamentos = cancelamentos_filtrado["USUARIO"].value_counts().max()
+            
+            # Motivo de Cancelamento Mais Comum
+            motivo_mais_comum = cancelamentos_filtrado["MOTIVO"].value_counts().idxmax()
+            qtd_motivo_mais_comum = cancelamentos_filtrado["MOTIVO"].value_counts().max()
+
+        else:
+            total_cancelamentos_periodo = 0
+            media_diaria_cancelamentos = 0
+            media_semanal_cancelamentos = 0
+            media_mensal_cancelamentos = 0
+            usuario_mais_cancelamentos = "N/A"
+            qtd_usuario_mais_cancelamentos = 0
+            motivo_mais_comum = "N/A"
+            qtd_motivo_mais_comum = 0
+
+        # KPIs de Cancelamento
+        st.subheader("📊 Indicadores de Cancelamento")
+        
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="kpi-card kpi-red">
+                <div class="kpi-icon">✖️</div>
+                <div class="kpi-value">{format_number(total_cancelamentos_periodo)}</div>
+                <div class="kpi-label">Total de Cancelamentos<br>no período</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="kpi-card kpi-orange">
+                <div class="kpi-icon">📅</div>
+                <div class="kpi-value">{format_number(media_diaria_cancelamentos)}</div>
+                <div class="kpi-label">Média Diária<br>de Cancelamentos</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="kpi-card kpi-purple">
+                <div class="kpi-icon">🗓️</div>
+                <div class="kpi-value">{format_number(media_semanal_cancelamentos)}</div>
+                <div class="kpi-label">Média Semanal<br>de Cancelamentos</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="kpi-card kpi-teal">
+                <div class="kpi-icon">📊</div>
+                <div class="kpi-value">{format_number(media_mensal_cancelamentos)}</div>
+                <div class="kpi-label">Média Mensal<br>de Cancelamentos</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col5:
+            st.markdown(f"""
+            <div class="kpi-card kpi-indigo">
+                <div class="kpi-icon">👤</div>
+                <div class="kpi-value">{usuario_mais_cancelamentos}</div>
+                <div class="kpi-label">Usuário com Mais Cancelamentos<br>({format_number(qtd_usuario_mais_cancelamentos)} cancelamentos)</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # Gráfico de Evolução da Taxa de Cancelamento (Ano Atual)
+        st.subheader("📈 Evolução da Taxa de Cancelamento vs Meta")
+        
+        # Filtrar dados para o ano atual
+        ano_atual = datetime.now().year
+        emissoes_ano_atual = df_tab4[df_tab4['DATA_EMISSÃO'].dt.year == ano_atual].copy()
+        cancelamentos_ano_atual = cancelamentos_tab4[cancelamentos_tab4['DATA_CANCELADO'].dt.year == ano_atual].copy()
+        
+        if not emissoes_ano_atual.empty and not cancelamentos_ano_atual.empty:
+            # Agrupar emissões por mês
+            emissoes_mensais = emissoes_ano_atual.groupby(emissoes_ano_atual['DATA_EMISSÃO'].dt.to_period('M'))['CTRC_EMITIDO'].sum()
+            
+            # Agrupar cancelamentos por mês
+            cancelamentos_mensais = cancelamentos_ano_atual.groupby(cancelamentos_ano_atual['DATA_CANCELADO'].dt.to_period('M')).size()
+            
+            # Criar DataFrame com todos os meses do ano
+            meses_ano = pd.period_range(start=f'{ano_atual}-01', end=f'{ano_atual}-12', freq='M')
+            df_evolucao = pd.DataFrame(index=meses_ano)
+            
+            # Adicionar dados de emissões e cancelamentos
+            df_evolucao['Emissoes'] = emissoes_mensais.reindex(meses_ano, fill_value=0)
+
+            # 👉 Força denominadores fixos (jan–ago) APENAS na visão geral
+            if usuario_selecionado == "Todos" and expedicao_selecionada == "Todas":
+                for nome_mes, valor in EMISSOES_FIXAS_MES.items():
+                    pos = MESES_MAP[nome_mes] - 1
+                    if 0 <= pos < len(df_evolucao):
+                        df_evolucao.iloc[pos, df_evolucao.columns.get_loc('Emissoes')] = valor
+                        
+            df_evolucao['Cancelamentos'] = cancelamentos_mensais.reindex(meses_ano, fill_value=0)
+            
+            # Calcular taxa de cancelamento
+            df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
+            
+            # Converter índice para string para plotagem
+            df_evolucao['Mes'] = df_evolucao.index.strftime('%b/%Y')
+            df_evolucao = df_evolucao.reset_index(drop=True)
+            
+            # Criar gráfico de linha
+            fig_evolucao_taxa = go.Figure()
+            
+            # Linha da taxa de cancelamento
+            fig_evolucao_taxa.add_trace(go.Scatter(
+                x=df_evolucao['Mes'],
+                y=df_evolucao['Taxa_Cancelamento'],
+                mode='lines+markers+text',  # <<< rótulos ativados
+                name='Taxa de Cancelamento (%)',
+                line=dict(color="#0145cd", width=3),
+                marker=dict(size=8, color="#FFFFFF"),
+                text=[f'{val:.2f}%' for val in df_evolucao['Taxa_Cancelamento']],
+                textposition='top center',
+                textfont=dict(size=16, color='white'), # Adiciona cor e tamanho para melhor visibilidade
+                hovertemplate='<b>%{x}</b><br>Taxa: %{y:.2f}%<extra></extra>'
+            ))
+            
+            # Linha de meta (0.75%)
+            fig_evolucao_taxa.add_hline(
+                y=0.75, 
+                line_dash="dash", 
+                line_color="orange",
+                annotation_text="Meta: 0.75%",
+                annotation_position="top right"
+            )
+
+            # Definir nomes completos em PT-BR
+            meses_labels = [
+                "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO",
+                "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"
+            ]
+
+            # Forçar ticks do eixo X com nomes em maiúsculo📈 Evolução da Taxa de Cancelamento (Ano Atual)
+            fig_evolucao_taxa.update_xaxes(
+                tickvals=df_evolucao.index,     # posições (um por mês)
+                ticktext=meses_labels,          # nomes que irão aparecer
+                tickfont=dict(size=15, color="white", family="Calibri")  # aumenta tamanho, cor e fonte
+            )
+
+            fig_evolucao_taxa.update_layout(
+                xaxis_title='',
+                yaxis_title='Taxa de Cancelamento (%)',
+                height=550,
+                showlegend=False,
+                margin=dict(t=20, b=40),  # topo menor, gráfico sobe
+                hovermode='x unified',
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                xaxis=dict(
+                    showgrid=True,
+                    gridcolor='rgba(128,128,128,0.2)'
+                ),
+                yaxis=dict(
+                    showgrid=True,
+                    gridcolor='rgba(128,128,128,0.2)',
+                    tickformat='.2f',
+                    tickfont=dict(size=15, color='white')  # <<< aumenta tamanho e cor da legenda dos meses
+                )
+            )
+            
+            st.plotly_chart(fig_evolucao_taxa, use_container_width=True)
+            
+        
+        else:
+            st.info("Dados insuficientes para gerar o gráfico de evolução da taxa de cancelamento para o ano atual.")
+        
+        st.markdown("---")
+
+        # KPI de Motivo Mais Comum
+        st.subheader("💡 Motivo de Cancelamento Mais Comum")
+        col1_motivo, col2_motivo, col3_motivo = st.columns([1, 2, 1])
+        with col2_motivo:
+            st.markdown(f"""
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon">🔍</div>
+                <div class="kpi-value">{motivo_mais_comum}</div>
+                <div class="kpi-label">Motivo Mais Comum<br>({format_number(qtd_motivo_mais_comum)} ocorrências)</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Cancelamentos por mês
+        
+        st.subheader("📅 Cancelamentos por Mês")
+        cancelamentos_mes = cancelamentos_filtrado.groupby('MÊS').size().reset_index(name='Cancelamentos')
+        
+        # Ordenar meses cronologicamente
+        meses_ordem = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 
+                       'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO']
+        cancelamentos_mes['ordem'] = cancelamentos_mes['MÊS'].map({mes: i for i, mes in enumerate(meses_ordem)})
+        cancelamentos_mes = cancelamentos_mes.sort_values('ordem')
+
+        fig_canc_mes = px.bar(
+            cancelamentos_mes,
+            x='MÊS',
+            y='Cancelamentos',
+            title="Cancelamentos por Mês",
+            color='Cancelamentos',
+            color_continuous_scale='Reds',
+            text='Cancelamentos'
+        )
+        fig_canc_mes.update_traces(
+            texttemplate='%{text}',
+            textposition='outside',
+            textfont_size=16
+        )
+        fig_canc_mes.update_layout(
+            xaxis_tickangle=0,
+            showlegend=False,
+            margin=dict(t=60),
+            yaxis=dict(range=[0, cancelamentos_mes['Cancelamentos'].max() * 1.15])
+        )
+
+        st.plotly_chart(fig_canc_mes, use_container_width=True)
+
+        st.markdown("---")
+
+        # Top motivos de cancelamento
+        st.subheader("🔍 Top 10 Motivos de Cancelamento")
+        top_motivos = cancelamentos_tab4["MOTIVO"].value_counts().head(10).reset_index()
+        top_motivos.columns = ['Motivo', 'Quantidade']
+        
+        fig_motivos = px.bar(
+            top_motivos,
+            x='Quantidade',
+            y='Motivo',
+            orientation='h',
+            title="Top 10 Motivos de Cancelamento",
+            color='Quantidade',
+            color_continuous_scale='Oranges',
+            text='Quantidade'
+        )
+        fig_motivos.update_traces(
+            texttemplate='%{text}',
+            textposition='outside',
+            textfont_size=16   # <<< aumenta o tamanho dos rótulos numéricos
+
+        )
+        fig_motivos.update_layout(
+            height=600, 
+            showlegend=False,
+            yaxis=dict(  # <--- CONFIGURAÇÃO DO EIXO Y
+                categoryorder='total ascending',  # Adiciona a ordem decrescente
+                tickfont=dict(
+                    size=14,      # Ajusta o tamanho da fonte
+                    color='white' # Opcional: Garante que a fonte seja branca
+                )
+            )
+        )
+        st.plotly_chart(fig_motivos, use_container_width=True)
+
+        st.markdown("---")
+
+        # Cancelamentos por Usuário
+        if usuario_selecionado == "Todos" or cancelamentos_tab4["USUARIO"].nunique() > 1:
+            st.subheader("👥 Cancelamentos por Usuário")
+            canc_usuario = cancelamentos_tab4["USUARIO"].value_counts().sort_values(ascending=False).head(10).reset_index()
+            canc_usuario.columns = ['USUARIO', 'Cancelamentos']
+            
+            fig_canc_usuario = px.bar(
+                canc_usuario,
+                x='Cancelamentos',
+                y='USUARIO',
+                orientation='h',
+                title="Top 10 Usuários com Mais Cancelamentos",
+                color='Cancelamentos',
+                color_continuous_scale='Reds',
+                text='Cancelamentos'
+            )
+            fig_canc_usuario.update_traces(
+                texttemplate='%{text}',
+                textposition='outside',
+                textfont_size=16
+            )
+
+            # --- AJUSTE AQUI ---
+            fig_canc_usuario.update_layout(
+                height=500, 
+                showlegend=False,
+                yaxis=dict(  # <--- CONFIGURAÇÃO DO EIXO Y
+                    categoryorder='total ascending',  # Adiciona a ordem decrescente
+                    tickfont=dict(
+                        size=14,      # Ajusta o tamanho da fonte
+                        color='white' # Define a cor da fonte
+                    )
+                )
+            )
+            st.plotly_chart(fig_canc_usuario, use_container_width=True)
+
+
+        else:
+            st.subheader(f"✖️ Motivos de Cancelamento para {usuario_selecionado}")
+            motivos_cancelamento_usuario = cancelamentos_tab4[cancelamentos_tab4["USUARIO"].str.strip() == usuario_selecionado.strip()]["MOTIVO"].value_counts().head(10).reset_index()
+            motivos_cancelamento_usuario.columns = ['Motivo', 'Quantidade']
+
+            if not motivos_cancelamento_usuario.empty:
+                fig_motivos_pizza = px.pie(
+                    motivos_cancelamento_usuario,
+                    values='Quantidade',
+                    names='Motivo',
+                    title=f"Distribuição de Motivos de Cancelamento para {usuario_selecionado}"
+                )
+                fig_motivos_pizza.update_traces(textposition='inside', textinfo='percent+label')
+                st.plotly_chart(fig_motivos_pizza, use_container_width=True)
+            else:
+                st.info(f"Nenhum cancelamento encontrado para o usuário {usuario_selecionado} no período selecionado.")
+
+        st.markdown("---")
+
+        col_expedicao, col_motivos_geral = st.columns(2)
+        
+
+        # SÓ MOSTRA OS GRÁFICOS DE EXPEDIÇÃO E MOTIVOS GERAIS SE NENHUM USUÁRIO ESPECÍFICO ESTIVER SELECIONADO
+        if usuario_selecionado == "Todos":
+            col_expedicao, col_motivos_geral = st.columns(2)
+            
+            with col_expedicao:
+                st.subheader("🚛 Cancelamentos por Expedição")
+                canc_expedicao = cancelamentos_tab4.groupby("EXPEDIÇÃO").size().reset_index(name="Cancelamentos")
+                
+                # Verifica se há dados para plotar
+                if not canc_expedicao.empty:
+                    fig_canc_exp = px.pie(
+                        canc_expedicao,
+                        values="Cancelamentos",
+                        names="EXPEDIÇÃO",
+                        title="Distribuição de Cancelamentos por Expedição"
+                    )
+                    st.plotly_chart(fig_canc_exp, use_container_width=True)
+                else:
+                    st.info("Não há dados de cancelamento por expedição para exibir.")
+
+            with col_motivos_geral:
+                st.subheader("🔍 Top 10 Motivos de Cancelamento (Geral)")
+                top_motivos_geral = cancelamentos_tab4["MOTIVO"].value_counts().head(10).reset_index()
+                top_motivos_geral.columns = ["Motivo", "Quantidade"]
+
+                if not top_motivos_geral.empty:
+                    fig_motivos_geral = px.pie(
+                        top_motivos_geral,
+                        values="Quantidade",
+                        names="Motivo",
+                        title="Top 10 Motivos de Cancelamento"
+                    )
+                    fig_motivos_geral.update_traces(textposition='inside', textinfo='percent+label')
+                    st.plotly_chart(fig_motivos_geral, use_container_width=True)
+                else:
+                    st.info("Nenhum motivo de cancelamento encontrado para o período selecionado.")
 
     with tab5:
         st.header("📋 Dados Detalhados")
@@ -3344,21 +3722,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
