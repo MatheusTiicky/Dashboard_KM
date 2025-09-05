@@ -3179,8 +3179,15 @@ def main():
         # Ranking de Usuários
         if usuario_selecionado == 'Todos':
             st.subheader("📊 Ranking de Usuários")
+        
         if usuario_selecionado == 'Todos':
-            ranking_usuarios = df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"].sum().sort_values(ascending=False).head(10).reset_index()
+            ranking_usuarios = (
+                df_tab3.groupby("USUÁRIO")["CTRC_EMITIDO"]
+                .sum()
+                .sort_values(ascending=False)
+                .head(10)
+                .reset_index()
+            )
             ranking_usuarios.columns = ['Usuário', 'Total de Emissões']
             
             fig_ranking = px.bar(
@@ -3193,9 +3200,34 @@ def main():
                 color_continuous_scale='Blues',
                 text='Total de Emissões'
             )
-            fig_ranking.update_traces(texttemplate='%{text:,}', textposition='outside')
-            fig_ranking.update_layout(height=500, showlegend=False)
+        
+            # Formatar os números com ponto como separador de milhar
+            fig_ranking.update_traces(
+                texttemplate='%{text:,.0f}'.replace(",", "."),
+                textposition='outside'
+            )
+        
+            # Ajustar layout do gráfico (altura maior e formato do eixo X)
+            fig_ranking.update_layout(
+                height=700,  # aumenta a altura
+                showlegend=False,
+                xaxis=dict(
+                    tickformat=",",  # força separador de milhar
+                    tickprefix="",
+                )
+            )
+        
+            # Força separador de milhar no eixo X com ponto
+            fig_ranking.update_xaxes(
+                tickformat=",",
+                ticklabelposition="outside",
+                tickfont=dict(size=12),
+                separatethousands=True  # coloca separador de milhar
+            )
+        
             st.plotly_chart(fig_ranking, use_container_width=True)
+
+            
         # Distribuição por Expedição
         if usuario_selecionado == 'Todos':
             st.subheader("🚛 Distribuição por Expedição")
@@ -3209,6 +3241,7 @@ def main():
                 title="Distribuição de Emissões por Expedição"
             )
             st.plotly_chart(fig_exp, use_container_width=True)
+            
     with tab4:
         st.header("✖️ Cancelamentos")
         
@@ -3694,6 +3727,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
