@@ -1584,6 +1584,7 @@ def main():
                 fig_trend_emissoes_temporal.add_trace(go.Scatter(
                     x=df_trend_emissoes_temporal['DATA_EMISSÃO'],
                     y=df_trend_emissoes_temporal['CTRC_EMITIDO'],
+                    mode="lines+markers+text", 
                     mode="lines+markers+text",
                     name="Histórico",
                     line=dict(color='#3b82f6', width=3),
@@ -3617,6 +3618,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
