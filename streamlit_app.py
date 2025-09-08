@@ -1585,7 +1585,6 @@ def main():
                     x=df_trend_emissoes_temporal['DATA_EMISSÃO'],
                     y=df_trend_emissoes_temporal['CTRC_EMITIDO'],
                     mode="lines+markers+text", 
-                    mode="lines+markers+text",
                     name="Histórico",
                     line=dict(color='#3b82f6', width=3),
                     marker=dict(size=6, color='white', line=dict(color='#3b82f6', width=2))
@@ -3618,6 +3617,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
