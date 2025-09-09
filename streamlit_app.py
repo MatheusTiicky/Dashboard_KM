@@ -2073,21 +2073,22 @@ def main():
 
            
            # ===============================
+           # ===============================
             # 🔴 Evolução Temporal de Cancelamentos Totais
             # ===============================
             st.markdown("<h3 style='color:#dc2626'>🔴 Evolução Temporal de Cancelamentos Totais</h3>", unsafe_allow_html=True)
-
+            
             granularidade_cancelamentos_temporal = st.radio(
                 "Selecione a granularidade para Cancelamentos (Totais):",
                 options=["Diário", "Semanal", "Mensal"],
                 horizontal=True,
                 key="gran_cancelamentos_temporal"
             )
-
+            
             if not cancelamentos_tab2.empty:
                 df_base_cancelamentos_temporal = cancelamentos_tab2[["DATA_CANCELADO"]].copy()
                 df_base_cancelamentos_temporal['CANCELAMENTOS'] = 1
-
+            
                 if granularidade_cancelamentos_temporal == "Diário":
                     df_trend_cancelamentos_temporal = (
                         df_base_cancelamentos_temporal
@@ -2097,32 +2098,30 @@ def main():
                         .rename(columns={'DATA_CANCELADO': 'DATA'})
                     )
                     show_text_cancelamentos = False
-
+            
                 elif granularidade_cancelamentos_temporal == "Semanal":
-                    # 🔹 Normaliza cada data para a sexta-feira da sua semana
                     df_base_cancelamentos_temporal['SEMANA'] = (
                         df_base_cancelamentos_temporal['DATA_CANCELADO']
                         .apply(lambda d: d - pd.Timedelta(days=(d.weekday() - 4) % 7))
                     )
-
+            
                     df_trend_cancelamentos_temporal = (
                         df_base_cancelamentos_temporal
                         .groupby('SEMANA')['CANCELAMENTOS'].sum()
                         .reset_index()
                         .rename(columns={'SEMANA': 'DATA'})
                     )
-
-                    # 🔹 Filtra para começar só a partir da 1ª sexta-feira >= data mínima
+            
                     primeira_data = df_base_cancelamentos_temporal['DATA_CANCELADO'].min().normalize()
-                    offset = (4 - primeira_data.weekday()) % 7  # 4 = sexta
+                    offset = (4 - primeira_data.weekday()) % 7
                     primeira_sexta = primeira_data + pd.Timedelta(days=offset)
-
+            
                     df_trend_cancelamentos_temporal = df_trend_cancelamentos_temporal[
                         df_trend_cancelamentos_temporal['DATA'] >= primeira_sexta
                     ]
-
+            
                     show_text_cancelamentos = True
-
+            
                 else:  # Mensal
                     df_trend_cancelamentos_temporal = (
                         df_base_cancelamentos_temporal
@@ -2132,29 +2131,25 @@ def main():
                         .rename(columns={'MES_REF': 'DATA'})
                     )
                     show_text_cancelamentos = True
-
+            
                 if len(df_trend_cancelamentos_temporal) >= 2:
                     x_cancelamentos_temporal = (
                         df_trend_cancelamentos_temporal['DATA'] - df_trend_cancelamentos_temporal['DATA'].min()
                     ).dt.days.values
                     y_cancelamentos_temporal = df_trend_cancelamentos_temporal['CANCELAMENTOS'].values
-
-                    # Regressão linear
+            
                     coef_cancelamentos_temporal = np.polyfit(x_cancelamentos_temporal, y_cancelamentos_temporal, 1)
                     poly_cancelamentos_temporal = np.poly1d(coef_cancelamentos_temporal)
-
-                    # Criar gráfico
+            
                     fig_trend_cancelamentos_temporal = go.Figure()
-
-                    # 🔹 Exibir rótulos apenas para Semanal e Mensal
+            
                     if show_text_cancelamentos:
                         trace_mode = "lines+markers+text"
                         trace_text = [f"{v:,.0f}".replace(",", ".") for v in y_cancelamentos_temporal]
                     else:
                         trace_mode = "lines+markers"
                         trace_text = None
-
-                    # 🔹 Dados históricos
+            
                     fig_trend_cancelamentos_temporal.add_trace(go.Scatter(
                         x=df_trend_cancelamentos_temporal['DATA'],
                         y=y_cancelamentos_temporal,
@@ -2166,8 +2161,8 @@ def main():
                         textposition="top center",
                         textfont=dict(size=13, color="#FFFFFF", family="Verdana")
                     ))
-
-                    # 🔹 Custom Hover (PT-BR)
+            
+                    # 🔹 Hover em PT-BR
                     dias_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
                     meses_pt = {
                         1: "Janeiro",  2: "Fevereiro", 3: "Março",
@@ -2175,13 +2170,13 @@ def main():
                         7: "Julho",    8: "Agosto",    9: "Setembro",
                         10: "Outubro", 11: "Novembro", 12: "Dezembro"
                     }
-
+            
                     fig_trend_cancelamentos_temporal.data[0].update(
                         customdata=[
                             [dt.strftime("%d/%m"),
-                            dias_semana[dt.weekday()],
-                            meses_pt[dt.month],
-                            f"{y:,.0f}".replace(",", ".")]
+                             dias_semana[dt.weekday()],
+                             meses_pt[dt.month],
+                             f"{y:,.0f}".replace(",", ".")]
                             for dt, y in zip(
                                 df_trend_cancelamentos_temporal["DATA"],
                                 df_trend_cancelamentos_temporal["CANCELAMENTOS"]
@@ -2194,8 +2189,8 @@ def main():
                             "✖️ Cancelamentos: %{customdata[3]}<extra></extra>"
                         )
                     )
-
-                    # 🔹 Layout igual ao de emissões
+            
+                    # 🔹 Layout
                     fig_trend_cancelamentos_temporal.update_layout(
                         height=500,
                         margin=dict(l=20, r=20, t=40, b=20),
@@ -2211,57 +2206,41 @@ def main():
                         ),
                         plot_bgcolor='rgba(0,0,0,0)',
                         paper_bgcolor='rgba(0,0,0,0)',
-                        xaxis=dict(
-                            showgrid=True,
-                            gridcolor='rgba(128,128,128,0.2)'
-                        ),
                         yaxis=dict(
                             tickformat=",d",
                             separatethousands=True
                         )
                     )
-
-                    # 🔹 Ajuste de rótulos no modo Diário e Semanal
-                    if granularidade_cancelamentos_temporal == "Diário":
-                        # Lista de meses em português abreviado
-                        meses_pt_abrev = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-                                        "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
-
-                        # Pegar apenas o primeiro dia de cada mês para evitar repetição
-                        tickvals = pd.to_datetime(df_trend_cancelamentos_temporal['DATA']).dt.to_period("M").drop_duplicates().dt.to_timestamp()
-
-                        # Gerar rótulos no formato Jan/25, Fev/25 etc.
+            
+                    # 🔹 Ajustar rótulos do eixo X (meses PT-BR)
+                    meses_pt_abrev = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+                                      "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+            
+                    if granularidade_cancelamentos_temporal == "Diário" and mes_selecionado == "Todos":
+                        tickvals = df_trend_cancelamentos_temporal['DATA'].dt.to_period("M").drop_duplicates().dt.start_time
                         ticktext = [f"{meses_pt_abrev[d.month-1]}/{str(d.year)[-2:]}" for d in tickvals]
-
-                        fig_trend_cancelamentos_temporal.update_xaxes(
-                            tickmode="array",
-                            tickvals=tickvals,
-                            ticktext=ticktext
-                        )
-
-
+            
+                    elif granularidade_cancelamentos_temporal == "Diário" and mes_selecionado != "Todos":
+                        tickvals = df_trend_cancelamentos_temporal['DATA'].unique()
+                        ticktext = [f"{d.strftime('%d')}/{meses_pt_abrev[d.month-1]}" for d in tickvals]
+            
+                    elif granularidade_cancelamentos_temporal == "Mensal":
+                        tickvals = df_trend_cancelamentos_temporal['DATA'].unique()
+                        ticktext = [f"{meses_pt_abrev[pd.to_datetime(d).month-1]}/{pd.to_datetime(d).strftime('%y')}" for d in tickvals]
+            
                     elif granularidade_cancelamentos_temporal == "Semanal":
-                        # Lista de meses em português abreviado
-                        meses_pt_abrev = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-                                        "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+                        tickvals = df_trend_cancelamentos_temporal['DATA'].dt.to_period("M").drop_duplicates().dt.start_time
+                        ticktext = [f"{meses_pt_abrev[d.month-1]}/{str(d.year)[-2:]}" for d in tickvals]
+            
+                    fig_trend_cancelamentos_temporal.update_xaxes(
+                        tickmode="array",
+                        tickvals=tickvals,
+                        ticktext=ticktext,
+                        tickfont=dict(size=14, color="white")
+                    )
+            
+                    st.plotly_chart(fig_trend_cancelamentos_temporal, use_container_width=True)
 
-                        # Pegar a primeira data de cada mês presente no dataframe semanal
-                        primeiras_datas_mes = df_trend_cancelamentos_temporal.groupby(
-                            df_trend_cancelamentos_temporal['DATA'].dt.to_period('M')
-                        )['DATA'].min().tolist()
-
-                        tickvals = primeiras_datas_mes
-                        ticktext = [f"{meses_pt_abrev[d.month-1]}/{str(d.year)[-2:]}" for d in primeiras_datas_mes]
-
-                        fig_trend_cancelamentos_temporal.update_xaxes(
-                            tickmode="array",
-                            tickvals=tickvals,
-                            ticktext=ticktext
-                        )
-
-
-                # Exibir gráfico
-                st.plotly_chart(fig_trend_cancelamentos_temporal, use_container_width=True)
 
             st.markdown("---")
 
@@ -3642,6 +3621,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
