@@ -2298,7 +2298,7 @@ def main():
             # GRÁFICO 1: Totais com RÓTULOS MAIORES
             # ===============================
             with col1:
-                st.markdown("### 📈 Emissões e Cancelamentos - Totais")
+                st.markdown("### 📈 Emissões e Cancelamentos por Dia da Semana")
 
                 max_emissoes_sum = weekday_stats["sum"].max()
                 max_cancelamentos_sum = weekday_stats["cancelamentos_sum"].max()
@@ -2388,7 +2388,7 @@ def main():
             # GRÁFICO 2: Médias com RÓTULOS MAIORES
             # ===============================
             with col2:
-                st.markdown("### 📊 Médias por Dia da Semana")
+                st.markdown("### 📊 Médias de Emissões e Cancelamentos por Dia da Semana")
 
                 max_emissoes_mean = weekday_stats["mean"].max()
                 max_cancelamentos_mean = weekday_stats["cancelamentos_mean"].max()
@@ -3628,6 +3628,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
