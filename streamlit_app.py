@@ -1665,6 +1665,7 @@ def main():
 
                 # Define se mostra rótulos ou não
                 if granularidade_emissoes_temporal == "Diário":
+                    trace_mode = "lines+markers+text"   # <<< adiciona +text
                     trace_text = [f"{v:,.0f}".replace(",", ".") for v in y_emissoes_temporal]
                 else:
                     trace_mode = "lines+markers+text"
@@ -3629,6 +3630,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
