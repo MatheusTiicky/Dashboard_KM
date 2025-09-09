@@ -1714,7 +1714,7 @@ def main():
                     xaxis=dict(
                         showgrid=True,
                         gridcolor='rgba(128,128,128,0.2)',
-                        tickformat="%b/%y"   # <<< força exibição Jan/25, Fev/25, etc
+                        tickformat="%b/%y",   # <<< força exibição Jan/25, Fev/25, etc
                         tickfont=dict(size=16, family="Verdana", color="white")  # <<< Aumentei fonte meses
                     ),
                     yaxis=dict(
@@ -3631,6 +3631,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
