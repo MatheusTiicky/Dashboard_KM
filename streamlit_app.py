@@ -1161,194 +1161,184 @@ def main():
                     st.info("Nenhum cancelamento encontrado para o usuário selecionado no período.")
 
                     # Seção de Velocímetro e Evolução da Taxa
-        if usuario_selecionado == 'Todos':
-            # --- AJUSTE AQUI ---
-            col_title1, col_title2 = st.columns([1, 2])
-            with col_title1:
-                st.markdown(
-                "<h3 style='text-align:center; font-size:24px;'>🎯 Monitoramento da Meta de Cancelamento</h3>",
-                unsafe_allow_html=True
-                )
+if usuario_selecionado == 'Todos':
+    col_title1, col_title2 = st.columns([1, 2])
+    with col_title1:
+        st.markdown(
+            "<h3 style='text-align:center; font-size:24px;'>🎯 Monitoramento da Meta de Cancelamento</h3>",
+            unsafe_allow_html=True
+        )
 
-            ano_atual = datetime.now().year   # ✅ garante que existe
-            with col_title2:
-                st.markdown(
-                f"<h3 style='text-align:center; font-size:22px;'>📈 Evolução da Taxa de Cancelamento {ano_atual}</h3>",
-                unsafe_allow_html=True
-                )
-            
-            col1, col2 = st.columns([1, 2])
-            
-            with col1:
-                # Gráfico de velocímetro para a meta
-                gauge_fig = create_gauge_chart(
-                    value=taxa_cancelamento/100,
-                    max_value=0.02,  # 2% como máximo
-                    title="Taxa de Cancelamento vs Meta"
-                )
-
-                st.markdown("<br>", unsafe_allow_html=True)
-
-
-                st.plotly_chart(gauge_fig, use_container_width=True)
-
-                # Definir nome do mês ou período
-                mes_texto = mes_selecionado if mes_selecionado != "Todos" else "Ano Atual"
-
-                # Mostrar o nome do mês acima do status
-                st.markdown(f"""
-                    <div style="text-align:center; margin-top:10px;">
-                        <span style="color:##FFFFFF; font-size:24px; font-weight:bold;">📆 {mes_texto}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Aviso Dinâmico abaixo do velocímetro
-                if taxa_cancelamento <= meta_taxa:
-                    # Status dentro da meta
-                    st.markdown(
-                        """
-                        <div style="text-align:center; margin-top:10px;">
-                            <span style="color:#10b981; font-size:20px;"><b>✅ Status: DENTRO DA META<b></span>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-
-                    st.markdown(
-                        """
-                        <div style="
-                            background-color:#16a34a;
-                           color:white;
-                           padding:12px;
-                           border-radius:10px;
-                           text-align:center;
-                           font-size:16px;
-                           font-weight:bold;
-                           margin-top:10px;
-                       ">
-                           EXCELENTE !!<br>
-                           A Taxa de Cancelamento está dentro da Meta de 0,75%.
-                       </div>
-                       """,
-                       unsafe_allow_html=True
-                    )
-
-                else:
-                    # 🚨 Status acima da meta (tarja preta piscando)
-                    st.markdown(
-                        """
-                        <style>
-                        @keyframes blink {
-                            0%   { background-color: black; }
-                            50%  { background-color: #333; }
-                            100% { background-color: black; }
-                        }
-                        .tarja-blink {
-                            animation: blink 1s infinite;
-                            padding: 6px 14px;
-                            border-radius: 8px;
-                            display: inline-block;
-                            font-weight: bold;
-                        }
-                        </style>
-
-                        <div style="text-align:center; margin-top:10px; font-size:20px; font-weight:bold;">
-                            🚨 <span class="tarja-blink" style="color:#ef4444;">Status: ACIMA DA META de 0.75%</span>
-                        </div>
-
-                        <div style="
-                            background-color:#dc2626;
-                            color:white;
-                            padding:12px;
-                            border-radius:10px;
-                            text-align:center;
-                            font-size:16px;
-                            font-weight:bold;
-                            margin-top:10px;
-                        ">
-                            A Taxa de Cancelamento Ultrapassou a Meta de 0,75%.<br>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-            
-        with col2:
-            # Gráfico de Evolução da Taxa de Cancelamento {ano_atual}
-            ano_atual = datetime.now().year
-            emissoes_ano_atual = df_filtrado[df_filtrado['DATA_EMISSÃO'].dt.year == ano_atual].copy()
-            cancelamentos_ano_atual = cancelamentos_filtrado[cancelamentos_filtrado['DATA_CANCELADO'].dt.year == ano_atual].copy()
+    ano_atual = datetime.now().year   # ✅ garante que existe
+    with col_title2:
+        st.markdown(
+            f"<h3 style='text-align:center; font-size:22px;'>📈 Evolução da Taxa de Cancelamento {ano_atual}</h3>",
+            unsafe_allow_html=True
+        )
     
-            if not emissoes_ano_atual.empty and not cancelamentos_ano_atual.empty:
-                emissoes_mensais = emissoes_ano_atual.groupby(emissoes_ano_atual['DATA_EMISSÃO'].dt.to_period('M'))['CTRC_EMITIDO'].sum()
-                cancelamentos_mensais = cancelamentos_ano_atual.groupby(cancelamentos_ano_atual['DATA_CANCELADO'].dt.to_period('M')).size()
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        # Gráfico de velocímetro para a meta
+        gauge_fig = create_gauge_chart(
+            value=taxa_cancelamento/100,
+            max_value=0.02,  # 2% como máximo
+            title="Taxa de Cancelamento vs Meta"
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.plotly_chart(gauge_fig, use_container_width=True)
+
+        # Definir nome do mês ou período
+        mes_texto = mes_selecionado if mes_selecionado != "Todos" else "Ano Atual"
+
+        # Mostrar o nome do mês acima do status
+        st.markdown(f"""
+            <div style="text-align:center; margin-top:10px;">
+                <span style="color:##FFFFFF; font-size:24px; font-weight:bold;">📆 {mes_texto}</span>
+            </div>
+        """, unsafe_allow_html=True)
         
-                meses_ano = pd.period_range(start=f'{ano_atual}-01', end=f'{ano_atual}-12', freq='M')
-                df_evolucao = pd.DataFrame(index=meses_ano)
-                df_evolucao['Emissoes'] = emissoes_mensais.reindex(meses_ano, fill_value=0)
+        # Aviso Dinâmico abaixo do velocímetro
+        if taxa_cancelamento <= meta_taxa:
+            st.markdown(
+                """
+                <div style="text-align:center; margin-top:10px;">
+                    <span style="color:#10b981; font-size:20px;"><b>✅ Status: DENTRO DA META<b></span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            st.markdown(
+                """
+                <div style="
+                    background-color:#16a34a;
+                    color:white;
+                    padding:12px;
+                    border-radius:10px;
+                    text-align:center;
+                    font-size:16px;
+                    font-weight:bold;
+                    margin-top:10px;
+                ">
+                    EXCELENTE !!<br>
+                    A Taxa de Cancelamento está dentro da Meta de 0,75%.
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                """
+                <style>
+                @keyframes blink {
+                    0%   { background-color: black; }
+                    50%  { background-color: #333; }
+                    100% { background-color: black; }
+                }
+                .tarja-blink {
+                    animation: blink 1s infinite;
+                    padding: 6px 14px;
+                    border-radius: 8px;
+                    display: inline-block;
+                    font-weight: bold;
+                }
+                </style>
 
-                # 👉 Força denominadores fixos (jan–ago) APENAS na visão geral
-                if usuario_selecionado == "Todos" and expedicao_selecionada == "Todas":
-                    for nome_mes, valor in EMISSOES_FIXAS_MES.items():
-                        pos = MESES_MAP[nome_mes] - 1  # meses_ano vai de JAN..DEZ
-                        if 0 <= pos < len(df_evolucao):
-                            df_evolucao.iloc[pos, df_evolucao.columns.get_loc('Emissoes')] = valor
-                
-                df_evolucao['Cancelamentos'] = cancelamentos_mensais.reindex(meses_ano, fill_value=0)
-                df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
-                df_evolucao['Mes'] = df_evolucao.index.strftime('%b/%y').str.title()
-                df_evolucao = df_evolucao.reset_index(drop=True)
+                <div style="text-align:center; margin-top:10px; font-size:20px; font-weight:bold;">
+                    🚨 <span class="tarja-blink" style="color:#ef4444;">Status: ACIMA DA META de 0.75%</span>
+                </div>
 
-                fig_evolucao_taxa = go.Figure()
-                fig_evolucao_taxa.add_trace(go.Scatter(
-                    x=df_evolucao['Mes'],
-                    y=df_evolucao['Taxa_Cancelamento'],
-                    mode='lines+markers+text',
-                    name='Taxa de Cancelamento (%)',
-                    line=dict(color="#0145cd", width=3),
-                    marker=dict(size=10, color="#FFFFFF", line=dict(color="#0145cd", width=2)),
-                    text=[f'{val:.2f}%' for val in df_evolucao['Taxa_Cancelamento']],
-                    textposition='top center',
-                    textfont=dict(size=13, color="#FFFFFF", family="Verdana"),
-                    hovertemplate='<b>%{x}</b><br>Taxa: %{y:.2f}%<extra></extra>'
-                ))
-        
-                fig_evolucao_taxa.add_hline(
-                    y=0.75, 
-                    line_dash="dash", 
-                    line_color="orange",
-                    annotation_text="Meta: 0.75%",
-                    annotation_position="top right",
-                    annotation=dict(font_size=14, font_color="orange")  # <<< aumenta o tamanho e mantém cor
+                <div style="
+                    background-color:#dc2626;
+                    color:white;
+                    padding:12px;
+                    border-radius:10px;
+                    text-align:center;
+                    font-size:16px;
+                    font-weight:bold;
+                    margin-top:10px;
+                ">
+                    A Taxa de Cancelamento Ultrapassou a Meta de 0,75%.<br>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+    
+    with col2:
+        # Gráfico de Evolução da Taxa de Cancelamento {ano_atual}
+        ano_atual = datetime.now().year
+        emissoes_ano_atual = df_filtrado[df_filtrado['DATA_EMISSÃO'].dt.year == ano_atual].copy()
+        cancelamentos_ano_atual = cancelamentos_filtrado[cancelamentos_filtrado['DATA_CANCELADO'].dt.year == ano_atual].copy()
+
+        if not emissoes_ano_atual.empty and not cancelamentos_ano_atual.empty:
+            emissoes_mensais = emissoes_ano_atual.groupby(emissoes_ano_atual['DATA_EMISSÃO'].dt.to_period('M'))['CTRC_EMITIDO'].sum()
+            cancelamentos_mensais = cancelamentos_ano_atual.groupby(cancelamentos_ano_atual['DATA_CANCELADO'].dt.to_period('M')).size()
+
+            meses_ano = pd.period_range(start=f'{ano_atual}-01', end=f'{ano_atual}-12', freq='M')
+            df_evolucao = pd.DataFrame(index=meses_ano)
+            df_evolucao['Emissoes'] = emissoes_mensais.reindex(meses_ano, fill_value=0)
+
+            # 👉 Força denominadores fixos (jan–ago) APENAS na visão geral
+            if usuario_selecionado == "Todos" and expedicao_selecionada == "Todas":
+                for nome_mes, valor in EMISSOES_FIXAS_MES.items():
+                    pos = MESES_MAP[nome_mes] - 1
+                    if 0 <= pos < len(df_evolucao):
+                        df_evolucao.iloc[pos, df_evolucao.columns.get_loc('Emissoes')] = valor
+            
+            df_evolucao['Cancelamentos'] = cancelamentos_mensais.reindex(meses_ano, fill_value=0)
+            df_evolucao['Taxa_Cancelamento'] = (df_evolucao['Cancelamentos'] / df_evolucao['Emissoes'] * 100).fillna(0)
+            df_evolucao['Mes'] = df_evolucao.index.strftime('%b/%y').str.title()
+            df_evolucao = df_evolucao.reset_index(drop=True)
+
+            fig_evolucao_taxa = go.Figure()
+            fig_evolucao_taxa.add_trace(go.Scatter(
+                x=df_evolucao['Mes'],
+                y=df_evolucao['Taxa_Cancelamento'],
+                mode='lines+markers+text',
+                name='Taxa de Cancelamento (%)',
+                line=dict(color="#0145cd", width=3),
+                marker=dict(size=10, color="#FFFFFF", line=dict(color="#0145cd", width=2)),
+                text=[f'{val:.2f}%' for val in df_evolucao['Taxa_Cancelamento']],
+                textposition='top center',
+                textfont=dict(size=13, color="#FFFFFF", family="Verdana"),
+                hovertemplate='<b>%{x}</b><br>Taxa: %{y:.2f}%<extra></extra>'
+            ))
+
+            fig_evolucao_taxa.add_hline(
+                y=0.75, 
+                line_dash="dash", 
+                line_color="orange",
+                annotation_text="Meta: 0.75%",
+                annotation_position="top right",
+                annotation=dict(font_size=14, font_color="orange")
+            )
+
+            fig_evolucao_taxa.update_layout(
+                xaxis_title='',
+                yaxis_title='Taxa de Cancelamento (%)',
+                height=550,
+                showlegend=False,
+                hovermode='x unified',
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=40, r=40, t=50, b=0),
+                xaxis=dict(
+                    showgrid=True,
+                    gridcolor='rgba(128,128,128,0.2)',
+                    tickformat="%b/%y",
+                    tickfont=dict(size=15, color='white')
+                ),
+                yaxis=dict(
+                    showgrid=True,
+                    gridcolor='rgba(128,128,128,0.2)',
+                    tickformat='.2f',
+                    range=[0, df_evolucao['Taxa_Cancelamento'].max() * 1.1]
                 )
+            )
 
-                # Pega o valor máximo da taxa para definir limite superior com folga
-                y_max = df_evolucao['Taxa_Cancelamento'].max() * 1.3  # 30% a mais de espaço
+            st.plotly_chart(fig_evolucao_taxa, use_container_width=True)
 
-                fig_evolucao_taxa.update_layout(
-                    xaxis_title='',
-                    yaxis_title='Taxa de Cancelamento (%)',
-                    height=550,
-                    showlegend=False,
-                    hovermode='x unified',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    margin=dict(l=40, r=40, t=50, b=0),   # <<< AQUI VOCÊ CONTROLA A ALTURA/ESPAÇAMENTO
-                    xaxis=dict(
-                        showgrid=True,
-                        gridcolor='rgba(128,128,128,0.2)',
-                        tickformat="%b/%y",   # <<< mostra como JAN/25, FEV/25, MAR/25 ...
-                        tickfont=dict(size=15, color='white')  # <<< aumenta tamanho e cor da legenda dos meses
-                    ),
-                    yaxis=dict(
-                        showgrid=True,
-                        gridcolor='rgba(128,128,128,0.2)',
-                        tickformat='.2f',
-                        range=[0, df_evolucao['Taxa_Cancelamento'].max() * 1.1]  # 10% de folga no topo
-                    )
-                )
-
-
-                st.plotly_chart(fig_evolucao_taxa, use_container_width=True)
 
         st.markdown("---")
 
@@ -3640,6 +3630,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
