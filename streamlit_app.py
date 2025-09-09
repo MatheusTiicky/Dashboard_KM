@@ -1107,9 +1107,6 @@ def main():
                     tendencia_icon_e_texto(taxa_var, nome_mes_anterior, positivo_bom=False),
                     unsafe_allow_html=True
                 )
-
-        else:
-            st.info("Sem comparação disponível (primeiro mês do ano ou dados insuficientes).")
         
         st.markdown("---")
 
@@ -3588,6 +3585,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
