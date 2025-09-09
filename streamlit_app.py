@@ -1358,7 +1358,7 @@ def main():
         # ===============================
         # 📊 Exibição dos Dados - Emissões e Cancelamentos
         # ===============================
-        st.subheader("📊 Exibição dos Dados (Emissões e Cancelamentos)")
+        st.subheader("📊 Exibição dos Dados - Emissões e Cancelamentos")
         tipo_agregacao = st.radio(
             "Selecione o tipo:",   
             ("Totais", "Médias"),
@@ -3640,6 +3640,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
