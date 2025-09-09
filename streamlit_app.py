@@ -2256,7 +2256,7 @@ def main():
             # ===============================
             st.subheader("📅 Padrões por Dia da Semana")
             
-            # (O código de preparação de dados continua o mesmo, sem alterações)
+            # Preparar dados base
             df_weekday = df_tab2.copy()
             df_weekday['weekday_num'] = df_weekday['DATA_EMISSÃO'].dt.weekday
             weekday_map = {
@@ -2270,10 +2270,12 @@ def main():
                 df_canc_weekday = cancelamentos_tab2.copy()
                 df_canc_weekday['weekday_num'] = df_canc_weekday['DATA_CANCELADO'].dt.weekday
                 df_canc_weekday['weekday_pt'] = df_canc_weekday['DATA_CANCELADO'].dt.day_name().map(weekday_map)
+            
                 canc_sum_stats = df_canc_weekday.groupby(['weekday_num', 'weekday_pt']).size().reset_index(name='cancelamentos_sum')
                 dias_unicos_com_canc = df_canc_weekday.groupby(['weekday_num', 'weekday_pt'])['DATA_CANCELADO'].nunique().reset_index(name='dias_com_cancelamento')
                 canc_mean_stats = pd.merge(canc_sum_stats, dias_unicos_com_canc, on=['weekday_num', 'weekday_pt'])
                 canc_mean_stats['cancelamentos_mean'] = canc_mean_stats['cancelamentos_sum'] / canc_mean_stats['dias_com_cancelamento']
+            
                 weekday_stats = pd.merge(weekday_stats, canc_sum_stats, on=['weekday_num', 'weekday_pt'], how='left')
                 weekday_stats = pd.merge(weekday_stats, canc_mean_stats[['weekday_num', 'weekday_pt', 'cancelamentos_mean']], on=['weekday_num', 'weekday_pt'], how='left')
                 weekday_stats.fillna(0, inplace=True)
@@ -2283,37 +2285,44 @@ def main():
             
             weekday_stats = weekday_stats.sort_values('weekday_num')
             
-            # --- ADIÇÃO IMPORTANTE AQUI: Calcular a Taxa de Cancelamento ---
+            # Calcular taxa de cancelamento (%)
             weekday_stats['taxa_cancelamento'] = (
                 (weekday_stats['cancelamentos_sum'] / weekday_stats['sum']) * 100
             ).fillna(0)
-            # --- FIM DA ADIÇÃO ---
             
             # Criar duas colunas para os gráficos
             col1, col2 = st.columns(2)
             
             # ===============================
-            # GRÁFICO 1: Totais com RÓTULOS MAIORES
+            # 📈 GRÁFICO 1: Totais
             # ===============================
             with col1:
                 st.markdown("### 📈 Total de Emissões e Cancelamentos")
             
                 max_emissoes_sum = weekday_stats["sum"].max()
                 max_cancelamentos_sum = weekday_stats["cancelamentos_sum"].max()
-                
+            
                 fig_totais = make_subplots(specs=[[{"secondary_y": True}]])
             
-               # Adicionar BARRAS de Emissões
+                # Barras de emissões
                 fig_totais.add_trace(go.Bar(
                     x=weekday_stats["weekday_pt"], y=weekday_stats["sum"],
                     name='Emissões', marker_color="#0752ca",
                     text=weekday_stats["sum"], texttemplate='%{text:,.0f}', textposition="outside",
                     textfont_size=16,
-                    customdata=np.stack([weekday_stats["weekday_pt"], weekday_stats["sum"].astype(int)], axis=-1),
-                    hovertemplate="📆 %{customdata[0]}<br>📊 Total de Emissões: %{customdata[1]:,d}<extra></extra>"
+                    customdata=np.stack([
+                        weekday_stats["weekday_pt"],
+                        weekday_stats["sum"].astype(int),
+                        weekday_stats["cancelamentos_sum"].astype(int)
+                    ], axis=-1),
+                    hovertemplate=(
+                        "📆 %{customdata[0]}<br>"
+                        "📊 Total de Emissões: %{customdata[1]}<br>"
+                        "✖️ Cancelamentos: %{customdata[2]}<extra></extra>"
+                    )
                 ), secondary_y=False)
             
-                # Adicionar LINHA de Cancelamentos
+                # Linha de cancelamentos
                 fig_totais.add_trace(go.Scatter(
                     x=weekday_stats["weekday_pt"], y=weekday_stats["cancelamentos_sum"],
                     name='Cancelamentos', mode='lines+markers+text',
@@ -2321,11 +2330,19 @@ def main():
                     marker=dict(size=8, color='white', line=dict(width=2, color='#ef4444')),
                     text=weekday_stats["cancelamentos_sum"].astype(int), textposition="top center",
                     textfont=dict(size=14, color="#ffffff"),
-                    customdata=np.stack([weekday_stats["weekday_pt"], weekday_stats["cancelamentos_sum"].astype(int)], axis=-1),
-                    hovertemplate="📆 %{customdata[0]}<br>✖️ Cancelamentos: %{customdata[1]:,d}<extra></extra>"
+                    customdata=np.stack([
+                        weekday_stats["weekday_pt"],
+                        weekday_stats["sum"].astype(int),
+                        weekday_stats["cancelamentos_sum"].astype(int)
+                    ], axis=-1),
+                    hovertemplate=(
+                        "📆 %{customdata[0]}<br>"
+                        "📊 Total de Emissões: %{customdata[1]}<br>"
+                        "✖️ Cancelamentos: %{customdata[2]}<extra></extra>"
+                    )
                 ), secondary_y=True)
             
-                # Layout e eixos
+                # Layout
                 fig_totais.update_layout(
                     xaxis_title="Dia da Semana", height=550,
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
@@ -2338,25 +2355,14 @@ def main():
                     title_text="<b>Total de Cancelamentos</b>", title_font_color="#ef4444",
                     tickfont_color="#ef4444", secondary_y=True, range=[0, max_cancelamentos_sum * 2.0]
                 )
-                
-                st.plotly_chart(fig_totais, use_container_width=True)
             
-                # Agrupar CANCELAMENTOS por dia da semana
-                df_weekday_canc = cancelamentos_tab2.copy()
-                if not df_weekday_canc.empty:
-                    df_weekday_canc['weekday_num'] = df_weekday_canc['DATA_CANCELADO'].dt.weekday
-                    df_weekday_canc['weekday_pt'] = df_weekday_canc['DATA_CANCELADO'].dt.day_name().map(weekday_map)
-                    weekday_canc_stats = df_weekday_canc.groupby(['weekday_num', 'weekday_pt']).size().reset_index(name='total_cancelamentos')
-                    weekday_canc_stats = weekday_canc_stats.sort_values('weekday_num')
-                else:
-                    weekday_canc_stats = pd.DataFrame(columns=['weekday_num', 'weekday_pt', 'total_cancelamentos'])
+                st.plotly_chart(fig_totais, use_container_width=True)
             
                 # Estatísticas
                 melhor_dia_totais = weekday_stats.loc[weekday_stats['sum'].idxmax(), 'weekday_pt']
                 pior_dia_totais = weekday_stats.loc[weekday_stats['sum'].idxmin(), 'weekday_pt']
-                dia_pico_cancelamentos = weekday_canc_stats.loc[weekday_canc_stats['total_cancelamentos'].idxmax(), 'weekday_pt'] if not weekday_canc_stats.empty else "N/A"
+                dia_pico_cancelamentos = weekday_stats.loc[weekday_stats['cancelamentos_sum'].idxmax(), 'weekday_pt']
             
-                # 🔹 Título dinâmico
                 if usuario_selecionado != "Todos":
                     titulo_estatisticas = f"📊 Estatísticas - Totais de Emissões de {usuario_selecionado}"
                 else:
@@ -2368,41 +2374,56 @@ def main():
                 st.markdown(f"🚨 **Pico de Cancelamentos:** {dia_pico_cancelamentos}")
             
             # ===============================
-            # GRÁFICO 2: Médias com RÓTULOS MAIORES
+            # 📊 GRÁFICO 2: Médias
             # ===============================
             with col2:
                 st.markdown("### 📊 Médias de Emissões e Cancelamentos")
             
                 max_emissoes_mean = weekday_stats["mean"].max()
                 max_cancelamentos_mean = weekday_stats["cancelamentos_mean"].max()
-                texto_media_cancelamento = weekday_stats["cancelamentos_mean"].astype(int)
             
                 fig_medias = make_subplots(specs=[[{"secondary_y": True}]])
             
-                # Adicionar BARRAS de Média de Emissões
+                # Barras de média de emissões
                 fig_medias.add_trace(go.Bar(
                     x=weekday_stats["weekday_pt"], y=weekday_stats["mean"],
                     name='Média de Emissões', marker_color="#058d37",
-                    text=weekday_stats["mean"], texttemplate='%{text:.0f}', textposition="outside",
+                    text=weekday_stats["mean"].round(0), texttemplate='%{text:.0f}', textposition="outside",
                     textfont_size=16,
-                    customdata=np.stack([weekday_stats["weekday_pt"], weekday_stats["mean"].astype(int)], axis=-1),
-                    hovertemplate="📆 %{customdata[0]}<br>📊 Média de Emissões: %{customdata[1]:,d}<extra></extra>"
-                ), secondary_y=False)  
+                    customdata=np.stack([
+                        weekday_stats["weekday_pt"],
+                        weekday_stats["mean"].round(0),
+                        weekday_stats["cancelamentos_mean"].round(0)
+                    ], axis=-1),
+                    hovertemplate=(
+                        "📆 %{customdata[0]}<br>"
+                        "📊 Média de Emissões: %{customdata[1]}<br>"
+                        "✖️ Média de Cancelamentos: %{customdata[2]}<extra></extra>"
+                    )
+                ), secondary_y=False)
             
-                # Adicionar LINHA de Média de Cancelamentos
+                # Linha de média de cancelamentos
                 fig_medias.add_trace(go.Scatter(
                     x=weekday_stats["weekday_pt"], y=weekday_stats["cancelamentos_mean"],
                     name='Média de Cancelamentos', mode='lines+markers+text',
                     line=dict(color='#f97316', width=3),
                     marker=dict(size=8, color='white', line=dict(width=2, color='#f97316')),
-                    text=weekday_stats["cancelamentos_mean"].astype(int), texttemplate='%{text:.0f}',
+                    text=weekday_stats["cancelamentos_mean"].round(0), texttemplate='%{text:.0f}',
                     textposition="top center",
                     textfont=dict(size=14, color="#ffffff"),
-                    customdata=np.stack([weekday_stats["weekday_pt"], weekday_stats["cancelamentos_mean"].astype(int)], axis=-1),
-                    hovertemplate="📆 %{customdata[0]}<br>✖️ Média de Cancelamentos: %{customdata[1]:,d}<extra></extra>"
+                    customdata=np.stack([
+                        weekday_stats["weekday_pt"],
+                        weekday_stats["mean"].round(0),
+                        weekday_stats["cancelamentos_mean"].round(0)
+                    ], axis=-1),
+                    hovertemplate=(
+                        "📆 %{customdata[0]}<br>"
+                        "📊 Média de Emissões: %{customdata[1]}<br>"
+                        "✖️ Média de Cancelamentos: %{customdata[2]}<extra></extra>"
+                    )
                 ), secondary_y=True)
             
-                # Layout e eixos
+                # Layout
                 fig_medias.update_layout(
                     xaxis_title="Dia da Semana", height=550,
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
@@ -2423,7 +2444,6 @@ def main():
                 pior_dia_medias = weekday_stats.loc[weekday_stats['mean'].idxmin(), 'weekday_pt']
                 dia_mais_cancel_mean = weekday_stats.loc[weekday_stats['cancelamentos_mean'].idxmax(), 'weekday_pt']
             
-                # 🔹 Título dinâmico
                 if usuario_selecionado != "Todos":
                     titulo_estatisticas_medias = f"📊 Estatísticas - Médias de Emissões de {usuario_selecionado}"
                 else:
@@ -3620,6 +3640,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
