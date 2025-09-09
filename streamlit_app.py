@@ -2376,7 +2376,7 @@ def main():
                 else:
                     dia_pico_cancelamentos = "N/A" # Caso não haja dados de cancelamento
 
-                st.markdown("#### 📊 Estatísticas - Totais")
+                st.markdown("#### 📊 Estatísticas - Totais de Emissões")
                 st.markdown(f"🚀 **Dia de Pico:** {melhor_dia_totais}")
                 st.markdown(f"📉 **Menor Produção:** {pior_dia_totais}")
                 # Adiciona a nova estatística de cancelamentos
@@ -2438,7 +2438,7 @@ def main():
                 melhor_dia_medias = weekday_stats.loc[weekday_stats['mean'].idxmax(), 'weekday_pt']
                 pior_dia_medias = weekday_stats.loc[weekday_stats['mean'].idxmin(), 'weekday_pt']
                 dia_mais_cancel_mean = weekday_stats.loc[weekday_stats['cancelamentos_mean'].idxmax(), 'weekday_pt']
-                st.markdown("#### 📊 Estatísticas - Médias")
+                st.markdown("#### 📊 Estatísticas - Médias de Emissões")
                 st.markdown(f"🚀 **Dia de Pico:** {melhor_dia_medias}")
                 st.markdown(f"📉 **Menor Média:** {pior_dia_medias}")
                 st.markdown(f"🚨 **Pico de Cancelamentos :** {dia_mais_cancel_mean}")
@@ -3628,6 +3628,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
