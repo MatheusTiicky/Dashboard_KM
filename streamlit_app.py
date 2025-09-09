@@ -1815,7 +1815,7 @@ def main():
                     ]
 
                 elif granularidade_emissoes_temporal == "Semanal":
-                    # Exemplo: 📅 06/01 | 📆 Semana | 📊 Total
+                    # Exemplo: 📅 06/01 | 📆 Semana | 📊 Total    
                     custom_hover = [
                         [
                             dt.strftime('%d/%m'),                  # 📅 Data de referência da semana
@@ -1877,21 +1877,22 @@ def main():
 
             st.markdown("---")
 
+      
             # ===============================
             # 🟢 Evolução Temporal de Emissões Médias
             # ===============================
-            st.markdown("<h3 style=\'color:#059669\'>🟢 Evolução Temporal de Emissões Médias</h3>", unsafe_allow_html=True)
-
+            st.markdown("<h3 style='color:#059669'>🟢 Evolução Temporal de Emissões Médias</h3>", unsafe_allow_html=True)
+            
             granularidade_medias_temporal = st.radio(
                 "Selecione a granularidade para Emissões (Médias):",
                 options=["Diário", "Semanal", "Mensal"],
                 horizontal=True,
                 key="gran_medias_temporal"
             )
-
+            
             # Preparar dados base de emissões para médias
             df_base_medias_temporal = df_tab2[["DATA_EMISSÃO", "CTRC_EMITIDO"]].copy()
-
+            
             if granularidade_medias_temporal == "Diário":
                 df_trend_medias_temporal = df_base_medias_temporal.groupby("DATA_EMISSÃO")["CTRC_EMITIDO"].mean().reset_index()
                 periodo_label_medias = "dias"
@@ -1909,7 +1910,7 @@ def main():
                 periodo_label_medias = "semanas"
                 future_periods_medias = 4
                 show_text_medias = True
-
+            
             else:  # Mensal
                 df_trend_medias_temporal = (df_base_medias_temporal
                                            .assign(MES_REF=df_base_medias_temporal["DATA_EMISSÃO"].dt.to_period("M").apply(lambda r: r.start_time))
@@ -1919,16 +1920,16 @@ def main():
                 periodo_label_medias = "meses"
                 future_periods_medias = 3
                 show_text_medias = True
-
+            
             # Calcular previsão para médias de emissões
             if len(df_trend_medias_temporal) >= 2:
                 x_medias_temporal = (df_trend_medias_temporal["DATA_EMISSÃO"] - df_trend_medias_temporal["DATA_EMISSÃO"].min()).dt.days.values
                 y_medias_temporal = df_trend_medias_temporal["CTRC_EMITIDO"].values
-
+            
                 # Regressão linear para médias
                 coef_medias_temporal = np.polyfit(x_medias_temporal, y_medias_temporal, 1)
                 poly_medias_temporal = np.poly1d(coef_medias_temporal)
-
+            
                 # Gerar previsões futuras para médias
                 if granularidade_medias_temporal == "Diário":
                     future_x_medias_temporal = np.arange(x_medias_temporal[-1] + 1, x_medias_temporal[-1] + future_periods_medias + 1)
@@ -1945,21 +1946,21 @@ def main():
                             future_dates_medias_temporal.append(last_date.replace(month=last_date.month + i))
                         else:
                             future_dates_medias_temporal.append(last_date.replace(year=last_date.year + 1, month=(last_date.month + i) % 12))
-
+            
                 future_y_medias_temporal = poly_medias_temporal(future_x_medias_temporal)
-
+            
                 # Criar gráfico de médias
                 fig_trend_medias_temporal = go.Figure()
-
+            
                 # Mapeamento dos dias da semana em português
                 dias_semana = {
                     0:"Segunda-feira", 1:"Terça-feira", 2:"Quarta-feira",
                     3:"Quinta-feira", 4:"Sexta-feira", 5:"Sábado", 6:"Domingo"
                 }
-
+            
                 # Criar coluna com dia da semana (agora que df_trend_medias_temporal já existe!)
                 df_trend_medias_temporal["DIA_SEMANA"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.weekday.map(dias_semana)
-
+            
                 # Trace com hover customizado
                 fig_trend_medias_temporal.add_trace(go.Scatter(
                     x=df_trend_medias_temporal["DATA_EMISSÃO"],
@@ -1978,7 +1979,7 @@ def main():
                     textposition="top center",
                     textfont=dict(size=15, color="white")
                 ))
-
+            
                 # Layout do gráfico de médias
                 fig_trend_medias_temporal.update_layout(
                     height=500,
@@ -2004,68 +2005,69 @@ def main():
                         gridcolor="rgba(128,128,128,0.2)"
                     )
                 )
-                
-
-                # 🔹 Traduz abreviações dos meses para PT-BR (funciona com locale pt_BR)
+            
+                # 🔹 Dicionário de meses abreviados em português
                 meses_abrev = {
-                    "jan": "Jan", "fev": "Fev", "mar": "Mar",
-                    "abr": "Abr", "mai": "Mai", "jun": "Jun",
-                    "jul": "Jul", "ago": "Ago", "set": "Set",
-                    "out": "Out", "nov": "Nov", "dez": "Dez"
+                    "jan": "Jan", "feb": "Fev", "mar": "Mar",
+                    "apr": "Abr", "may": "Mai", "jun": "Jun",
+                    "jul": "Jul", "aug": "Ago", "sep": "Set",
+                    "oct": "Out", "nov": "Nov", "dec": "Dez"
                 }
-
-                # Pegar só um valor por mês (primeiro dia do mês, por exemplo)
-                tickvals = df_trend_medias_temporal["DATA_EMISSÃO"].dt.to_period("M").drop_duplicates().dt.start_time
-
-                fig_trend_medias_temporal.update_xaxes(
-                    tickvals=tickvals,
-                    ticktext=[
-                        meses_abrev.get(d.strftime("%b").lower(), d.strftime("%b")) + "/" + d.strftime("%Y")
-                        for d in tickvals
-                    ]
-                )
-
-                # 👉 Ajustar eixo X somente quando for Diário + Todos
+            
+                # Ajustar eixo X dependendo do filtro e granularidade
                 if granularidade_medias_temporal == "Diário" and mes_selecionado == "Todos":
                     tickvals = (
-                        df_trend_medias_temporal['DATA_EMISSÃO']
+                        df_trend_medias_temporal["DATA_EMISSÃO"]
                         .dt.to_period("M")
                         .drop_duplicates()
                         .dt.start_time
                     )
-
-                    # Abreviações em PT-BR
-                    meses_abrev = {
-                        "Jan": "Jan", "Feb": "Fev", "Mar": "Mar", "Apr": "Abr",
-                        "May": "Mai", "Jun": "Jun", "Jul": "Jul", "Aug": "Ago",
-                        "Sep": "Set", "Oct": "Out", "Nov": "Nov", "Dec": "Dez"
-                    }
-
-                    ticktext = [dt.strftime("%b/%y").capitalize() for dt in tickvals]
                     ticktext = [
-                        meses_abrev.get(txt.split("/")[0], txt.split("/")[0]) + "/" + txt.split("/")[1]
-                        for txt in ticktext
+                        f"{meses_abrev[d.strftime('%b').lower()]}/{d.strftime('%y')}"
+                        for d in tickvals
                     ]
-
-                    fig_trend_medias_temporal.update_layout(
-                        xaxis=dict(
-                            tickvals=tickvals,
-                            ticktext=ticktext,
-                            tickfont=dict(size=14, color="white"),
-                            showgrid=True,
-                            gridcolor="rgba(128,128,128,0.2)"
-                        )
+            
+                elif granularidade_medias_temporal == "Diário" and mes_selecionado != "Todos":
+                    tickvals = df_trend_medias_temporal["DATA_EMISSÃO"].unique()
+                    ticktext = [
+                        f"{d.strftime('%d')}/{meses_abrev[d.strftime('%b').lower()]}"
+                        for d in tickvals
+                    ]
+            
+                elif granularidade_medias_temporal == "Mensal" and mes_selecionado == "Todos":
+                    tickvals = df_trend_medias_temporal["DATA_EMISSÃO"].unique()
+                    ticktext = [
+                        f"{meses_abrev[pd.to_datetime(d).strftime('%b').lower()]}/{pd.to_datetime(d).strftime('%y')}"
+                        for d in tickvals
+                    ]
+            
+                elif granularidade_medias_temporal == "Semanal" and mes_selecionado == "Todos":
+                    tickvals = (
+                        df_trend_medias_temporal["DATA_EMISSÃO"]
+                        .dt.to_period("M")
+                        .drop_duplicates()
+                        .dt.start_time
                     )
-
-                
+                    ticktext = [
+                        f"{meses_abrev[d.strftime('%b').lower()]}/{d.strftime('%y')}"
+                        for d in tickvals
+                    ]
+            
+                fig_trend_medias_temporal.update_xaxes(
+                    tickvals=tickvals,
+                    ticktext=ticktext,
+                    tickfont=dict(size=14, color="white")
+                )
+            
                 st.plotly_chart(fig_trend_medias_temporal, use_container_width=True)
-
+            
                 # Mostrar insights da previsão de médias
                 tendencia_medias = "crescente" if coef_medias_temporal[0] > 0 else "decrescente" if coef_medias_temporal[0] < 0 else "estável"
                 col1, col2, col3 = st.columns(3)
-
+            
             else:
                 st.info("Dados insuficientes para gerar previsão de médias. São necessários pelo menos 2 pontos de dados.")
+
 
             st.markdown("---")
 
@@ -3639,6 +3641,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
