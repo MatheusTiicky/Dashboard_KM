@@ -1356,7 +1356,7 @@ def main():
         st.markdown("<br>", unsafe_allow_html=True)
         
         # ===============================
-        # 📊 Exibição dos Dados (Emissões e Cancelamentos)
+        # 📊 Exibição dos Dados - Emissões e Cancelamentos
         # ===============================
         st.subheader("📊 Exibição dos Dados (Emissões e Cancelamentos)")
         tipo_agregacao = st.radio(
@@ -1370,7 +1370,7 @@ def main():
         
         with col1_chart:
             # Título dinâmico baseado no tipo de agregação
-            st.subheader(f"📈 Emissões por Mês ({tipo_agregacao})")
+            st.subheader(f"📈 Emissões ({tipo_agregacao})")
             
             # Aplicar agregação baseada na seleção
             if tipo_agregacao == "Totais":
@@ -1430,7 +1430,7 @@ def main():
 
         with col2_chart:
             # Título dinâmico baseado no tipo de agregação
-            st.subheader(f"✖️ Cancelamentos por Mês ({tipo_agregacao})")
+            st.subheader(f"✖️ Cancelamentos ({tipo_agregacao})")
             
             # Aplicar agregação baseada na seleção
             if tipo_agregacao == "Totais":
@@ -3640,6 +3640,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
