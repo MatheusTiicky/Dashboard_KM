@@ -1743,18 +1743,27 @@ def main():
                         .drop_duplicates()
                         .dt.start_time
                     )
-                    ticktext = [dt.strftime('%b/%y').capitalize() for dt in tickvals]
-
+                    ticktext = [
+                        f"{meses_abrev[dt.strftime('%b').lower()]}/{dt.strftime('%y')}"
+                        for dt in tickvals
+                    ]
+                
                 elif granularidade_emissoes_temporal == "Diário" and mes_selecionado != "Todos":
                     # Caso 2: Diário + 1 mês → dias do mês
                     tickvals = df_trend_emissoes_temporal['DATA_EMISSÃO'].unique()
-                    ticktext = [f"{dt.strftime('%d')}/{dt.strftime('%b').capitalize()}" for dt in tickvals]
-
+                    ticktext = [
+                        f"{dt.strftime('%d')}/{meses_abrev[dt.strftime('%b').lower()]}"
+                        for dt in tickvals
+                    ]
+                
                 elif granularidade_emissoes_temporal == "Mensal":
                     # Caso 3: Mensal → mês/ano
                     tickvals = df_trend_emissoes_temporal['DATA_EMISSÃO'].unique()
-                    ticktext = [pd.to_datetime(dt).strftime('%b/%y').capitalize() for dt in tickvals]
-
+                    ticktext = [
+                        f"{meses_abrev[pd.to_datetime(dt).strftime('%b').lower()]}/{pd.to_datetime(dt).strftime('%y')}"
+                        for dt in tickvals
+                    ]
+                
                 elif granularidade_emissoes_temporal == "Semanal":
                     # Caso 4: Semanal → apenas mês/ano (um rótulo por mês)
                     tickvals = (
@@ -1763,12 +1772,16 @@ def main():
                         .drop_duplicates()
                         .dt.start_time
                     )
-                    ticktext = [dt.strftime('%b/%y').capitalize() for dt in tickvals]
-
+                    ticktext = [
+                        f"{meses_abrev[dt.strftime('%b').lower()]}/{dt.strftime('%y')}"
+                        for dt in tickvals
+                    ]
+                
                 fig_trend_emissoes_temporal.update_xaxes(
                     tickvals=tickvals,
                     ticktext=ticktext
                 )
+
 
                 # 🔹 Dicionário de dias da semana em português
                 dias_semana = {
@@ -3617,6 +3630,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
