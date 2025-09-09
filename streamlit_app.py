@@ -2303,14 +2303,14 @@ def main():
                 
                 fig_totais = make_subplots(specs=[[{"secondary_y": True}]])
             
-                # Adicionar BARRAS de Emissões
+               # Adicionar BARRAS de Emissões
                 fig_totais.add_trace(go.Bar(
                     x=weekday_stats["weekday_pt"], y=weekday_stats["sum"],
                     name='Emissões', marker_color="#0752ca",
                     text=weekday_stats["sum"], texttemplate='%{text:,.0f}'.replace(",", "."),
                     textposition="outside", textfont_size=16,
                     customdata=np.stack([weekday_stats["weekday_pt"], weekday_stats["sum"].astype(int)], axis=-1),
-                    hovertemplate="📆 %{customdata[0]}<br>📊 Emissões: %{customdata[1]:,d}<extra></extra>"
+                    hovertemplate="📆 %{customdata[0]}<br>📊 Total de Emissões: %{customdata[1]:,d}<extra></extra>"
                 ), secondary_y=False)
             
                 # Adicionar LINHA de Cancelamentos
@@ -2387,7 +2387,7 @@ def main():
                     textposition="outside", textfont_size=16,
                     customdata=np.stack([weekday_stats["weekday_pt"], weekday_stats["mean"].astype(int)], axis=-1),
                     hovertemplate="📆 %{customdata[0]}<br>📊 Média de Emissões: %{customdata[1]:,d}<extra></extra>"
-                ), secondary_y=False)
+                ), secondary_y=False)        
             
                 # Adicionar LINHA de Média de Cancelamentos
                 fig_medias.add_trace(go.Scatter(
@@ -3619,6 +3619,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
