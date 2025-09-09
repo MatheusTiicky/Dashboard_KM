@@ -1665,7 +1665,7 @@ def main():
                     if mes_selecionado == "Todos":
                         trace_mode = "lines+markers"   # <<< sem rótulos
                         trace_text = None
-                        text_size = 0
+                        text_size = None
                     else:
                         trace_mode = "lines+markers+text"
                         trace_text = [f"{v:,.0f}".replace(",", ".") for v in y_emissoes_temporal]
@@ -1690,7 +1690,8 @@ def main():
                     customdata=[format_number(v) for v in y_emissoes_temporal],
                     text=trace_text,
                     textposition="top center",
-                    textfont=dict(size=text_size, color="white", family="Verdana")  # <<< dinâmico
+                    # só aplica textfont se realmente houver rótulos
+                    textfont=dict(size=text_size, color="white", family="Verdana") if text_size else None
                 ))
                 
                 # 🔹 Reaplica o ajuste do eixo X se for semanal
@@ -3638,6 +3639,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
