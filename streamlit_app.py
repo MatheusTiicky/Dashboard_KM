@@ -1879,6 +1879,7 @@ def main():
 
       
             # ===============================
+           # ===============================
             # 🟢 Evolução Temporal de Emissões Médias
             # ===============================
             st.markdown("<h3 style='color:#059669'>🟢 Evolução Temporal de Emissões Médias</h3>", unsafe_allow_html=True)
@@ -1897,9 +1898,11 @@ def main():
                 df_trend_medias_temporal = df_base_medias_temporal.groupby("DATA_EMISSÃO")["CTRC_EMITIDO"].mean().reset_index()
                 periodo_label_medias = "dias"
                 future_periods_medias = 7
-                show_text_medias = False
+            
+                # 🔹 Só mostra rótulos no Diário quando for mês específico
+                show_text_medias = mes_selecionado != "Todos"
+            
             elif granularidade_medias_temporal == "Semanal":
-                # Agrupa por semana ajustando para cair na sexta-feira
                 df_trend_medias_temporal = (
                     df_base_medias_temporal
                     .assign(SEMANA=df_base_medias_temporal["DATA_EMISSÃO"] - pd.to_timedelta(df_base_medias_temporal["DATA_EMISSÃO"].dt.weekday - 4, unit="D"))
@@ -1912,11 +1915,13 @@ def main():
                 show_text_medias = True
             
             else:  # Mensal
-                df_trend_medias_temporal = (df_base_medias_temporal
-                                           .assign(MES_REF=df_base_medias_temporal["DATA_EMISSÃO"].dt.to_period("M").apply(lambda r: r.start_time))
-                                           .groupby("MES_REF")["CTRC_EMITIDO"].mean()
-                                           .reset_index()
-                                           .rename(columns={"MES_REF": "DATA_EMISSÃO"}))
+                df_trend_medias_temporal = (
+                    df_base_medias_temporal
+                    .assign(MES_REF=df_base_medias_temporal["DATA_EMISSÃO"].dt.to_period("M").apply(lambda r: r.start_time))
+                    .groupby("MES_REF")["CTRC_EMITIDO"].mean()
+                    .reset_index()
+                    .rename(columns={"MES_REF": "DATA_EMISSÃO"})
+                )
                 periodo_label_medias = "meses"
                 future_periods_medias = 3
                 show_text_medias = True
@@ -1958,7 +1963,7 @@ def main():
                     3:"Quinta-feira", 4:"Sexta-feira", 5:"Sábado", 6:"Domingo"
                 }
             
-                # Criar coluna com dia da semana (agora que df_trend_medias_temporal já existe!)
+                # Criar coluna com dia da semana
                 df_trend_medias_temporal["DIA_SEMANA"] = df_trend_medias_temporal["DATA_EMISSÃO"].dt.weekday.map(dias_semana)
             
                 # Trace com hover customizado
@@ -2067,7 +2072,7 @@ def main():
             
             else:
                 st.info("Dados insuficientes para gerar previsão de médias. São necessários pelo menos 2 pontos de dados.")
-
+            
 
             st.markdown("---")
 
@@ -3621,6 +3626,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
