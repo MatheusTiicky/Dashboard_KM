@@ -1659,18 +1659,26 @@ def main():
                 
                 # Criar gráfico de emissões
                 fig_trend_emissoes_temporal = go.Figure()
-                                
-                #show_labels = granularidade_emissoes_temporal in ["Semanal", "Mensal"]
-
-
+                
                 # Define se mostra rótulos ou não
                 if granularidade_emissoes_temporal == "Diário":
-                    trace_mode = "lines+markers"   # <<< sem rótulos
-                    trace_text = [f"{v:,.0f}".replace(",", ".") for v in y_emissoes_temporal]
-                else:
+                    if mes_selecionado == "Todos":
+                        trace_mode = "lines+markers"   # <<< sem rótulos
+                        trace_text = None
+                        text_size = 0
+                    else:
+                        trace_mode = "lines+markers+text"
+                        trace_text = [f"{v:,.0f}".replace(",", ".") for v in y_emissoes_temporal]
+                        text_size = 16   # <<< maior no diário
+                elif granularidade_emissoes_temporal == "Semanal":
                     trace_mode = "lines+markers+text"
                     trace_text = [f"{v:,.0f}".replace(",", ".") for v in y_emissoes_temporal]
-
+                    text_size = 10       # <<< menor no semanal
+                else:  # Mensal
+                    trace_mode = "lines+markers+text"
+                    trace_text = [f"{v:,.0f}".replace(",", ".") for v in y_emissoes_temporal]
+                    text_size = 12       # <<< médio no mensal
+                
                 fig_trend_emissoes_temporal.add_trace(go.Scatter(
                     x=df_trend_emissoes_temporal['DATA_EMISSÃO'], 
                     y=y_emissoes_temporal, 
@@ -1682,10 +1690,9 @@ def main():
                     customdata=[format_number(v) for v in y_emissoes_temporal],
                     text=trace_text,
                     textposition="top center",
-                    textfont=dict(size=16, color="white", family="Verdana")  # <<< aumentei de 12 → 16
+                    textfont=dict(size=text_size, color="white", family="Verdana")  # <<< dinâmico
                 ))
-
-
+                
                 # 🔹 Reaplica o ajuste do eixo X se for semanal
                 if granularidade_emissoes_temporal == "Semanal":
                     fig_trend_emissoes_temporal.update_xaxes(
@@ -1693,7 +1700,6 @@ def main():
                         tickformat="%b/%y",      # Jan/25, Fev/25
                         ticklabelmode="period"   # 1 rótulo por mês
                     )
-
                 
                 # Layout do gráfico de emissões
                 fig_trend_emissoes_temporal.update_layout(
@@ -1715,13 +1721,14 @@ def main():
                         showgrid=True,
                         gridcolor='rgba(128,128,128,0.2)',
                         tickformat="%b/%y",   # <<< força exibição Jan/25, Fev/25, etc
-                        tickfont=dict(size=15, family="Verdana", color="white")  # <<< Aumentei fonte meses
+                        tickfont=dict(size=15, family="Verdana", color="white")  # <<< aumenta fonte meses
                     ),
                     yaxis=dict(
                         tickformat=",d",   # força número inteiro
                         separatethousands=True  # <<< separa milhares com ponto
                     )
                 )
+                
                 # 🔹 Dicionário de meses abreviados em português
                 meses_abrev = {
                     # Inglês
@@ -1734,7 +1741,7 @@ def main():
                     "jun": "Jun", "jul": "Jul", "ago": "Ago",
                     "set": "Set", "out": "Out", "nov": "Nov", "dez": "Dez"
                 }
-
+                
                 # 🔹 Ajustar labels do eixo X dependendo do filtro e granularidade
                 if granularidade_emissoes_temporal == "Diário" and mes_selecionado == "Todos":
                     # Caso 1: Diário + Todos → mês/ano
@@ -3631,6 +3638,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
