@@ -1722,7 +1722,7 @@ def main():
                         showgrid=True,
                         gridcolor='rgba(128,128,128,0.2)',
                         tickformat="%b/%y",   # <<< força exibição Jan/25, Fev/25, etc
-                        tickfont=dict(size=10, family="Verdana", color="white")  # <<< aumenta fonte meses
+                        tickfont=dict(size=13, family="Verdana", color="white")  # <<< aumenta fonte meses
                     ),
                     yaxis=dict(
                         tickformat=",d",   # força número inteiro
@@ -3641,6 +3641,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
