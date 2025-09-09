@@ -2078,7 +2078,7 @@ def main():
 
            
            # ===============================
-           # ===============================
+         # ===============================
             # 🔴 Evolução Temporal de Cancelamentos Totais
             # ===============================
             st.markdown("<h3 style='color:#dc2626'>🔴 Evolução Temporal de Cancelamentos Totais</h3>", unsafe_allow_html=True)
@@ -2102,7 +2102,8 @@ def main():
                         .reset_index()
                         .rename(columns={'DATA_CANCELADO': 'DATA'})
                     )
-                    show_text_cancelamentos = False
+                    # 🔹 Só mostra rótulos no Diário quando for mês específico
+                    show_text_cancelamentos = mes_selecionado != "Todos"
             
                 elif granularidade_cancelamentos_temporal == "Semanal":
                     df_base_cancelamentos_temporal['SEMANA'] = (
@@ -2245,6 +2246,7 @@ def main():
                     )
             
                     st.plotly_chart(fig_trend_cancelamentos_temporal, use_container_width=True)
+
 
 
             st.markdown("---")
@@ -3626,6 +3628,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
