@@ -1116,49 +1116,7 @@ def main():
         # Espaçamento entre seções
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Seção de insights específicos para usuário selecionado
-        if usuario_selecionado != 'Todos':
-            st.markdown(f"### 🎯 Insights para {usuario_selecionado}")
-            
-            col1_insights, col2_insights = st.columns(2)
-            
-            with col1_insights:
-                st.markdown("**📈 Emissões do Usuário**")
-                if len(df_filtrado) > 0:
-                    emissoes_usuario = df_filtrado['CTRC_EMITIDO'].sum()
-                    media_diaria_usuario = df_filtrado.groupby('DATA_EMISSÃO')['CTRC_EMITIDO'].sum().mean()
-                    st.write(f"• Total de emissões: {format_number(emissoes_usuario)}")
-                    st.write(f"• Média diária: {format_number(media_diaria_usuario)}")
-                    
-                    # Distribuição por expedição
-                    if 'EXPEDIÇÃO' in df_filtrado.columns:
-                        top_expedicao = df_filtrado.groupby('EXPEDIÇÃO')['CTRC_EMITIDO'].sum().idxmax()
-                        st.write(f"• Expedição principal: {top_expedicao}")
-                else:
-                    st.info("Nenhuma emissão encontrada para o usuário selecionado no período.")
-
-            with col2_insights:
-                st.markdown("**🏆 Top 5 Motivos de Cancelamento (Usuário Selecionado)**")
-                if len(cancelamentos_filtrado) > 0:
-                    top_motivos_usuario = cancelamentos_filtrado["MOTIVO"].value_counts().head(5)
-                    fig_motivos_usuario = px.bar(
-                        x=top_motivos_usuario.values,
-                        y=top_motivos_usuario.index,
-                        orientation='h',
-                        title="",
-                        color=top_motivos_usuario.values,
-                        color_continuous_scale='Oranges',
-                        text=top_motivos_usuario.values
-                    )
-                    fig_motivos_usuario.update_traces(texttemplate='%{text}', textposition='outside')
-                    fig_motivos_usuario.update_layout(
-                        height=300,
-                        showlegend=False,
-                        margin=dict(l=20, r=20, t=20, b=20)
-                    )
-                    st.plotly_chart(fig_motivos_usuario, use_container_width=True)
-                else:
-                    st.info("Nenhum cancelamento encontrado para o usuário selecionado no período.")
+    
 
                     # Seção de Velocímetro e Evolução da Taxa
                     if usuario_selecionado == 'Todos':
@@ -3630,6 +3588,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
