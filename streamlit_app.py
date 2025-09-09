@@ -1116,7 +1116,7 @@ def main():
         # Espaçamento entre seções
         st.markdown("<br>", unsafe_allow_html=True)
 
-         Seção de insights específicos para usuário selecionado
+         # Seção de insights específicos para usuário selecionado
         if usuario_selecionado != 'Todos':
             st.markdown(f"### 🎯 Insights para {usuario_selecionado}")
             
@@ -1130,7 +1130,7 @@ def main():
                     st.write(f"• Total de emissões: {format_number(emissoes_usuario)}")
                     st.write(f"• Média diária: {format_number(media_diaria_usuario)}")
                     
-                     Distribuição por expedição
+                    # Distribuição por expedição
                     if 'EXPEDIÇÃO' in df_filtrado.columns:
                         top_expedicao = df_filtrado.groupby('EXPEDIÇÃO')['CTRC_EMITIDO'].sum().idxmax()
                         st.write(f"• Expedição principal: {top_expedicao}")
@@ -3632,6 +3632,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
