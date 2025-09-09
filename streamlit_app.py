@@ -1673,7 +1673,7 @@ def main():
                 elif granularidade_emissoes_temporal == "Semanal":
                     trace_mode = "lines+markers+text"
                     trace_text = [f"{v:,.0f}".replace(",", ".") for v in y_emissoes_temporal]
-                    text_size = 13       # <<< menor no semanal
+                    text_size = 12       # <<< menor no semanal
                 else:  # Mensal
                     trace_mode = "lines+markers+text"
                     trace_text = [f"{v:,.0f}".replace(",", ".") for v in y_emissoes_temporal]
