@@ -2085,7 +2085,7 @@ def main():
             )
             
             # Preparar dados base de cancelamentos
-            df_base_cancelamentos_temporal = df_tab2[["DATA_CANCELAMENTO", "CTRC_CANCELADO"]].copy()
+           st.write("Colunas disponíveis em df_tab2:", df_tab2.columns.tolist())
             
             if granularidade_cancelamentos_temporal == "Diário":
                 df_trend_cancelamentos_temporal = df_base_cancelamentos_temporal.groupby("DATA_CANCELAMENTO")["CTRC_CANCELADO"].sum().reset_index()
@@ -3598,6 +3598,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
