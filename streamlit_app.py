@@ -1682,7 +1682,7 @@ def main():
                     customdata=[format_number(v) for v in y_emissoes_temporal],
                     text=trace_text,
                     textposition="top center",
-                    textfont=dict(size=12, color="white")
+                    textfont=dict(size=14, color="white")
                 ))
 
 
@@ -3617,6 +3617,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
