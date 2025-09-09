@@ -2307,8 +2307,8 @@ def main():
                 fig_totais.add_trace(go.Bar(
                     x=weekday_stats["weekday_pt"], y=weekday_stats["sum"],
                     name='Emissões', marker_color="#0752ca",
-                    text=weekday_stats["sum"], texttemplate='%{text:,.0f}'.replace(",", "."),
-                    textposition="outside", textfont_size=16,
+                    text=weekday_stats["sum"], texttemplate='%{text:,.0f}', textposition="outside",
+                    textfont_size=16,
                     customdata=np.stack([weekday_stats["weekday_pt"], weekday_stats["sum"].astype(int)], axis=-1),
                     hovertemplate="📆 %{customdata[0]}<br>📊 Total de Emissões: %{customdata[1]:,d}<extra></extra>"
                 ), secondary_y=False)
@@ -2383,11 +2383,11 @@ def main():
                 fig_medias.add_trace(go.Bar(
                     x=weekday_stats["weekday_pt"], y=weekday_stats["mean"],
                     name='Média de Emissões', marker_color="#058d37",
-                    text=weekday_stats["mean"], texttemplate='%{text:.0f}',
-                    textposition="outside", textfont_size=16,
+                    text=weekday_stats["mean"], texttemplate='%{text:.0f}', textposition="outside",
+                    textfont_size=16,
                     customdata=np.stack([weekday_stats["weekday_pt"], weekday_stats["mean"].astype(int)], axis=-1),
                     hovertemplate="📆 %{customdata[0]}<br>📊 Média de Emissões: %{customdata[1]:,d}<extra></extra>"
-                ), secondary_y=False)        
+                ), secondary_y=False)  
             
                 # Adicionar LINHA de Média de Cancelamentos
                 fig_medias.add_trace(go.Scatter(
@@ -2395,8 +2395,9 @@ def main():
                     name='Média de Cancelamentos', mode='lines+markers+text',
                     line=dict(color='#f97316', width=3),
                     marker=dict(size=8, color='white', line=dict(width=2, color='#f97316')),
-                    text=texto_media_cancelamento, texttemplate='%{text:.0f}',
-                    textposition="top center", textfont=dict(size=14, color="#ffffff"),
+                    text=weekday_stats["cancelamentos_mean"].astype(int), texttemplate='%{text:.0f}',
+                    textposition="top center",
+                    textfont=dict(size=14, color="#ffffff"),
                     customdata=np.stack([weekday_stats["weekday_pt"], weekday_stats["cancelamentos_mean"].astype(int)], axis=-1),
                     hovertemplate="📆 %{customdata[0]}<br>✖️ Média de Cancelamentos: %{customdata[1]:,d}<extra></extra>"
                 ), secondary_y=True)
@@ -3619,6 +3620,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
