@@ -18858,10 +18858,124 @@ def main():
         _occ_active_tbl = _occ_apply_tbl and (_occ_type_tbl != "Nenhum") and bool(_occ_q_tbl)
 
         _exp_title = "🔎 Ver tabelas (Tipos e Placas)"
-        if _occ_active_tbl:
-            _exp_title = f"🔎 Selecione um Motorista com Ocorrência de {_occ_type_tbl}"
 
-        with st.expander(_exp_title):
+        if _occ_active_tbl:
+            _qtd_mot = 0
+            try:
+                _qtd_mot = len(df_list)
+            except Exception:
+                try:
+                    _qtd_mot = len(df_list_all)
+                except Exception:
+                    _qtd_mot = 0
+        
+            _status_txt = (
+                f"👥 {format_number(_qtd_mot)} motoristas disponíveis"
+                if _occ_focus_is_all
+                else f"👤 Selecionado: {_occ_focus_name}"
+            )
+        
+            _subtitle_txt = (
+                f"Selecione o motorista com ocorrência de {_occ_type_tbl} para abrir o detalhamento individual."
+                if _occ_focus_is_all
+                else f"Detalhamento individual ativo para ocorrência de {_occ_type_tbl}."
+            )
+        
+            st.markdown(_html_block(f"""
+            <style>
+            .nr-driver-pick-card {{
+                position: relative;
+                overflow: hidden;
+                border: 1px solid rgba(56, 189, 248, .16);
+                background:
+                    radial-gradient(circle at top right, rgba(56, 189, 248, .12), transparent 34%),
+                    linear-gradient(135deg, rgba(15, 23, 42, .96), rgba(2, 6, 23, .98));
+                border-radius: 18px;
+                padding: 18px 18px 14px 18px;
+                margin: 8px 0 12px 0;
+                box-shadow: 0 12px 30px rgba(0,0,0,.30);
+            }}
+        
+            .nr-driver-pick-card::before {{
+                content: "";
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 4px;
+                border-radius: 18px 0 0 18px;
+                background: linear-gradient(180deg, #38bdf8 0%, #22c55e 100%);
+            }}
+        
+            .nr-driver-pick-title {{
+                color: #f8fafc;
+                font-size: 1.02rem;
+                font-weight: 800;
+                letter-spacing: .2px;
+                margin-bottom: 4px;
+            }}
+        
+            .nr-driver-pick-subtitle {{
+                color: rgba(226,232,240,.76);
+                font-size: .88rem;
+                line-height: 1.45;
+            }}
+        
+            .nr-driver-pick-badges {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 12px;
+            }}
+        
+            .nr-driver-pick-badge {{
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 7px 11px;
+                border-radius: 999px;
+                font-size: .77rem;
+                font-weight: 700;
+                color: #e2e8f0;
+                background: rgba(15,23,42,.82);
+                border: 1px solid rgba(148,163,184,.16);
+            }}
+        
+            .nr-driver-pick-badge.is-accent {{
+                background: rgba(14,165,233,.12);
+                border-color: rgba(56,189,248,.26);
+                color: #bae6fd;
+            }}
+        
+            .nr-driver-pick-hint {{
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid rgba(148,163,184,.10);
+                color: rgba(148,163,184,.92);
+                font-size: .82rem;
+            }}
+            </style>
+        
+            <div class="nr-driver-pick-card">
+                <div class="nr-driver-pick-title">🔎 Seleção Inteligente de Motorista</div>
+                <div class="nr-driver-pick-subtitle">{_esc_html(_subtitle_txt)}</div>
+        
+                <div class="nr-driver-pick-badges">
+                    <span class="nr-driver-pick-badge is-accent">⚠️ Ocorrência: {_esc_html(_occ_type_tbl)}</span>
+                    <span class="nr-driver-pick-badge">{_esc_html(_status_txt)}</span>
+                    <span class="nr-driver-pick-badge">📊 Top 15 no recorte atual</span>
+                    <span class="nr-driver-pick-badge">🔍 Busca por nome, código ou placa</span>
+                </div>
+        
+                <div class="nr-driver-pick-hint">
+                    Abra o seletor abaixo para localizar rápido o motorista e acessar o detalhamento individual.
+                </div>
+            </div>
+            """), unsafe_allow_html=True)
+        
+            _exp_title = "🎯 Abrir seletor avançado de motorista"
+        
+        with st.expander(_exp_title, expanded=bool(_occ_active_tbl and _occ_focus_is_all)):
             # -------------------------------------------------
             # Base bruta para tabelas do controle e detalhamento por placa
             # -------------------------------------------------
