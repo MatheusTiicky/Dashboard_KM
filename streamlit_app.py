@@ -572,7 +572,6 @@ MOTORISTA_DEPARA = {
     "VEIC.EXT": {"COD": "0253", "NOME": "VEICULO EXTRA - TRANSFERENCIA"},
     "WAGNERPS": {"COD": "0141", "NOME": "WAGNER PEREIRA DA SILVA"},
     "WELTONRC": {"COD": "0151", "NOME": "WELTON RODRIGUES DA CONCEICAO"},
-    "ENILTON P.": {"COD": "0262", "NOME": "ENILTON PEREZ DA CRUZ"},
 }
 
 _MOTORISTA_STOP = {"-", "—", "–"}
@@ -4785,29 +4784,61 @@ def main():
         meta_qtd_sub = f"Até {meta_qtd_txt} cancel."
 
         # ---- NR INVÁLIDO (Quantidade e Taxa) ----
-        def _count_nr_invalid(_df: pd.DataFrame) -> int:
-            if (_df is None) or (not isinstance(_df, pd.DataFrame)) or _df.empty:
-                return 0
-            _obs_col = _find_col_contains(_df, "observ") or _find_col_contains(_df, "observacao")
-            if (_obs_col is None) or (_obs_col not in _df.columns):
-                return 0
-            _obs_norm = _df[_obs_col].fillna("").astype(str).map(_norm_text_search)
+        # Usa a MESMA regra do Controle de Ocorrências: quando a busca é NR,
+        # qualquer ocorrência de "NR" na Observação entra na contagem.
+        raw_e_cur = pd.DataFrame()
+        raw_e_prev = pd.DataFrame()
+        try:
+            _raw_cmp = ops_mom_base.copy() if isinstance(ops_mom_base, pd.DataFrame) else pd.DataFrame()
+            if (not _raw_cmp.empty) and ("DATA_EMISSÃO" in _raw_cmp.columns):
+                if day_mode and (cur_day is not None) and (prev_day is not None):
+                    raw_e_cur = _raw_cmp[_raw_cmp["DATA_EMISSÃO"].dt.date == cur_day].copy()
+                    raw_e_prev = _raw_cmp[_raw_cmp["DATA_EMISSÃO"].dt.date == prev_day].copy()
+                else:
+                    raw_e_cur = _raw_cmp[_raw_cmp["DATA_EMISSÃO"].dt.to_period("M") == cur_period].copy()
+                    raw_e_prev = _raw_cmp[_raw_cmp["DATA_EMISSÃO"].dt.to_period("M") == prev_period].copy()
+        except Exception:
+            raw_e_cur = pd.DataFrame()
+            raw_e_prev = pd.DataFrame()
 
-            # tenta pegar "NR" + "inválido/ilegível"; se não achar nenhum, cai para qualquer "NR"
-            _m_nr = _obs_norm.str.contains(r"\bnr", regex=True, na=False)
-            _m_inv = _obs_norm.str.contains(r"inval|ileg", regex=True, na=False)
-            _m = _m_nr & _m_inv
-            if int(_m.sum()) == 0:
-                _m = _m_nr
-            return int(_m.sum())
+        def _count_nr_invalid(_df: pd.DataFrame, _raw_df: pd.DataFrame | None = None) -> int:
+            def _count_from_df(_base: pd.DataFrame) -> int:
+                if (_base is None) or (not isinstance(_base, pd.DataFrame)) or _base.empty:
+                    return 0
+                _obs_col = (
+                    _find_col_contains(_base, "observ")
+                    or _find_col_contains(_base, "observacao")
+                    or next((c for c in _base.columns if "observ" in _norm_key(c)), None)
+                )
+                if (_obs_col is None) or (_obs_col not in _base.columns):
+                    return 0
+                try:
+                    return int(len(_apply_obs_query_filter(_base, _obs_col, "NR")))
+                except Exception:
+                    _obs_norm = _base[_obs_col].fillna("").astype(str).map(_norm_text_search)
+                    return int(_obs_norm.str.contains(r"\bnr", regex=True, na=False).sum())
+
+            _cnt_raw = _count_from_df(_raw_df)
+            if _cnt_raw > 0:
+                return _cnt_raw
+            return _count_from_df(_df)
 
         # No recorte atual (KPIs do topo)
-        nr_inv_total = _count_nr_invalid(df_tab1)
+        nr_inv_total = _count_nr_invalid(
+            df_tab1,
+            base_ops_df if isinstance(base_ops_df, pd.DataFrame) and (not base_ops_df.empty) else None,
+        )
         nr_inv_rate_total = (nr_inv_total / float(total_emissoes) * 100.0) if float(total_emissoes) > 0 else 0.0
 
         # Para comparação (dia ant. / mês ant.)
-        nr_cur = _count_nr_invalid(e_cur)
-        nr_prev = _count_nr_invalid(e_prev)
+        nr_cur = _count_nr_invalid(
+            e_cur,
+            raw_e_cur if isinstance(raw_e_cur, pd.DataFrame) and (not raw_e_cur.empty) else None,
+        )
+        nr_prev = _count_nr_invalid(
+            e_prev,
+            raw_e_prev if isinstance(raw_e_prev, pd.DataFrame) and (not raw_e_prev.empty) else None,
+        )
         nr_rate_cur = (nr_cur / float(em_cur) * 100.0) if float(em_cur) > 0 else 0.0
         nr_rate_prev = (nr_prev / float(em_prev) * 100.0) if float(em_prev) > 0 else 0.0
         d_nr = (nr_rate_cur - nr_rate_prev)  # p.p.
@@ -7630,23 +7661,37 @@ def main():
                 nome_card = _first_words(nome_full, n=2, max_len=14).upper() if nome_full != "N/D" else "N/D"
                 return (nome_card, qtd, nome_full)
 
-            def _count_nr_invalid_prod(_df: pd.DataFrame) -> int:
-                if (_df is None) or (not isinstance(_df, pd.DataFrame)) or _df.empty:
-                    return 0
-                _obs_col = _find_col_contains(_df, "observ") or _find_col_contains(_df, "observacao")
-                if (_obs_col is None) or (_obs_col not in _df.columns):
-                    return 0
-                _obs_norm = _df[_obs_col].fillna("").astype(str).map(_norm_text_search)
-                _m_nr = _obs_norm.str.contains(r"nr", regex=True, na=False)
-                _m_inv = _obs_norm.str.contains(r"inval|ileg", regex=True, na=False)
-                _m = _m_nr & _m_inv
-                if int(_m.sum()) == 0:
-                    _m = _m_nr
-                return int(_m.sum())
+            def _count_nr_invalid_prod(_df: pd.DataFrame, _raw_df: pd.DataFrame | None = None) -> int:
+                def _count_from_df(_base: pd.DataFrame) -> int:
+                    if (_base is None) or (not isinstance(_base, pd.DataFrame)) or _base.empty:
+                        return 0
+                    _obs_col = (
+                        _find_col_contains(_base, "observ")
+                        or _find_col_contains(_base, "observacao")
+                        or next((c for c in _base.columns if "observ" in _norm_key(c)), None)
+                    )
+                    if (_obs_col is None) or (_obs_col not in _base.columns):
+                        return 0
+                    try:
+                        return int(len(_apply_obs_query_filter(_base, _obs_col, "NR")))
+                    except Exception:
+                        _obs_norm = _base[_obs_col].fillna("").astype(str).map(_norm_text_search)
+                        return int(_obs_norm.str.contains(r"\bnr", regex=True, na=False).sum())
+
+                # Prioriza a base bruta já filtrada da aba para manter o mesmo total do
+                # controle de ocorrências e evitar divergência como 18 x 20.
+                _cnt_raw = _count_from_df(_raw_df)
+                if _cnt_raw > 0:
+                    return _cnt_raw
+                return _count_from_df(_df)
 
             top_user_normal, top_user_normal_qtd, top_user_normal_full = _top_usuario_tipo_prod(df_tab3, "NORMAL")
             top_user_red, top_user_red_qtd, top_user_red_full = _top_usuario_tipo_prod(df_tab3, "REDESPACHO")
-            nr_invalidos_prod = _count_nr_invalid_prod(df_tab3)
+            nr_invalidos_prod = _count_nr_invalid_prod(
+                df_tab3,
+                df_raw_prod if isinstance(df_raw_prod, pd.DataFrame) and (not df_raw_prod.empty) else None
+            )
+
             nr_invalidos_rate = (float(nr_invalidos_prod) / float(total_emissoes_periodo) * 100.0) if float(total_emissoes_periodo) > 0 else 0.0
 
             emi_top1, emi_top2 = st.columns(2, gap="small")
@@ -18467,7 +18512,7 @@ def main():
                     st.markdown("#### 📦 Indicadores Operacionais")
                     o1, o2, o3 = st.columns(3)
                     with o1:
-                        _kpi_card_moderno("🧾", format_number(total_nr), "REGISTRO DE NR", "kpi-blue", badge_text=(f"🧾 Base: {format_number(total_emit)} emissões" if total_emit > 0 else None), force_compact=True, extra_class="kpi-clean kpi-occ", height_px=156)
+                        _kpi_card_moderno("🧾", format_number(total_nr), "REGISTRO DE NdddR", "kpi-blue", badge_text=(f"🧾 Base: {format_number(total_emit)} emissões" if total_emit > 0 else None), force_compact=True, extra_class="kpi-clean kpi-occ", height_px=156)
                     with o2:
                         _kpi_card_moderno("📦", vol_aff_txt, "VOLUMES AFETADOS (NR)", "kpi-teal", badge_text=(vol_badge if vol_badge else None), force_compact=True, extra_class="kpi-clean kpi-occ", height_px=156)
                     with o3:
@@ -18858,29 +18903,7 @@ def main():
         _occ_active_tbl = _occ_apply_tbl and (_occ_type_tbl != "Nenhum") and bool(_occ_q_tbl)
 
         _exp_title = "🔎 Ver tabelas (Tipos e Placas)"
-
         if _occ_active_tbl:
-            _qtd_mot = 0
-            try:
-                _qtd_mot = len(df_list)
-            except Exception:
-                try:
-                    _qtd_mot = len(df_list_all)
-                except Exception:
-                    _qtd_mot = 0
-        
-            _status_txt = (
-                f"👥 {format_number(_qtd_mot)} motoristas disponíveis"
-                if _occ_focus_is_all
-                else f"👤 Selecionado: {_occ_focus_name}"
-            )
-        
-            _subtitle_txt = (
-                f"Selecione o motorista com ocorrência de {_occ_type_tbl} para abrir o detalhamento individual."
-                if _occ_focus_is_all
-                else f"Detalhamento individual ativo para ocorrência de {_occ_type_tbl}."
-            )
-        
             st.markdown(_html_block(f"""
             <style>
             .nr-driver-pick-card {{
@@ -18895,7 +18918,7 @@ def main():
                 margin: 8px 0 12px 0;
                 box-shadow: 0 12px 30px rgba(0,0,0,.30);
             }}
-        
+
             .nr-driver-pick-card::before {{
                 content: "";
                 position: absolute;
@@ -18906,7 +18929,7 @@ def main():
                 border-radius: 18px 0 0 18px;
                 background: linear-gradient(180deg, #38bdf8 0%, #22c55e 100%);
             }}
-        
+
             .nr-driver-pick-title {{
                 color: #f8fafc;
                 font-size: 1.02rem;
@@ -18914,20 +18937,20 @@ def main():
                 letter-spacing: .2px;
                 margin-bottom: 4px;
             }}
-        
+
             .nr-driver-pick-subtitle {{
                 color: rgba(226,232,240,.76);
                 font-size: .88rem;
                 line-height: 1.45;
             }}
-        
+
             .nr-driver-pick-badges {{
                 display: flex;
                 flex-wrap: wrap;
                 gap: 8px;
                 margin-top: 12px;
             }}
-        
+
             .nr-driver-pick-badge {{
                 display: inline-flex;
                 align-items: center;
@@ -18940,13 +18963,13 @@ def main():
                 background: rgba(15,23,42,.82);
                 border: 1px solid rgba(148,163,184,.16);
             }}
-        
+
             .nr-driver-pick-badge.is-accent {{
                 background: rgba(14,165,233,.12);
                 border-color: rgba(56,189,248,.26);
                 color: #bae6fd;
             }}
-        
+
             .nr-driver-pick-hint {{
                 margin-top: 12px;
                 padding-top: 12px;
@@ -18955,27 +18978,26 @@ def main():
                 font-size: .82rem;
             }}
             </style>
-        
+
             <div class="nr-driver-pick-card">
                 <div class="nr-driver-pick-title">🔎 Seleção Inteligente de Motorista</div>
-                <div class="nr-driver-pick-subtitle">{_esc_html(_subtitle_txt)}</div>
-        
+                <div class="nr-driver-pick-subtitle">Selecione o motorista com ocorrência de {_esc_html(_occ_type_tbl)} para abrir o detalhamento individual.</div>
+
                 <div class="nr-driver-pick-badges">
                     <span class="nr-driver-pick-badge is-accent">⚠️ Ocorrência: {_esc_html(_occ_type_tbl)}</span>
-                    <span class="nr-driver-pick-badge">{_esc_html(_status_txt)}</span>
-                    <span class="nr-driver-pick-badge">📊 Top 15 no recorte atual</span>
-                    <span class="nr-driver-pick-badge">🔍 Busca por nome, código ou placa</span>
+                    <span class="nr-driver-pick-badge">🎯 Filtro ativo</span>
+                    <span class="nr-driver-pick-badge">📊 Ranking e detalhamento</span>
+                    <span class="nr-driver-pick-badge">🔍 Busca por motorista</span>
                 </div>
-        
+
                 <div class="nr-driver-pick-hint">
                     Abra o seletor abaixo para localizar rápido o motorista e acessar o detalhamento individual.
                 </div>
             </div>
             """), unsafe_allow_html=True)
-        
-            _exp_title = "🎯 Abrir seletor avançado de motorista"
-        
-        with st.expander(_exp_title, expanded=bool(_occ_active_tbl and _occ_focus_is_all)):
+            _exp_title = f"🎯 Abrir seletor de motorista com {_occ_type_tbl}"
+
+        with st.expander(_exp_title, expanded=False):
             # -------------------------------------------------
             # Base bruta para tabelas do controle e detalhamento por placa
             # -------------------------------------------------
