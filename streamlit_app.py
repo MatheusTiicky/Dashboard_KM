@@ -1996,7 +1996,9 @@ def _kpi_card_moderno(icon, value, title, color_class, badge_text: str | None = 
         _dk = "neutral"
 
     _dk_cls = f" {_dk}" if _dk else ""
-    _is_clean = "kpi-clean" in str(extra_class)
+    _extra_class_str = str(extra_class or "")
+    _is_clean = "kpi-clean" in _extra_class_str
+    _is_occ = "kpi-occ" in _extra_class_str
     badge_html = "" if _is_clean else (f"<div class='kpi-spark-delta{_dk_cls}'>{badge_text}</div>" if badge_text else "")
     sub_html = "" if _is_clean else (f"<div class='kpi-spark-sub'>{subline}</div>" if subline else "")
 
@@ -2023,12 +2025,18 @@ def _kpi_card_moderno(icon, value, title, color_class, badge_text: str | None = 
 
     _extra = f" {extra_class}" if extra_class else ""
 
+    _inline_clean_meta = ""
     _bottom_items = []
     if _is_clean:
-        if badge_text:
-            _bottom_items.append(str(badge_text))
-        if subline:
-            _bottom_items.append(str(subline))
+        if _is_occ and badge_text and subline:
+            _inline_clean_meta = f"<div class='kpi-inline-meta'>{html.escape(str(subline))}</div>"
+            # Controle de Ocorrências: mantém somente 1 informação abaixo da linha
+            _bottom_items = [str(badge_text)]
+        else:
+            if badge_text:
+                _bottom_items.append(str(badge_text))
+            if subline:
+                _bottom_items.append(str(subline))
     _bottom_html = ""
     _wrap_cls = "kpi-sparkline-wrap"
     if _bottom_items:
@@ -2044,6 +2052,7 @@ def _kpi_card_moderno(icon, value, title, color_class, badge_text: str | None = 
             <div>
                 <div class="kpi-spark-title">{title}</div>
                 <div class="kpi-spark-value{_v_cls}" title="{_v_title}">{value}</div>
+                {_inline_clean_meta}
                 {badge_html}{sub_html}
             </div>
             <div class="kpi-spark-icon">{icon}</div>
@@ -3705,7 +3714,138 @@ def main():
             line-height: 1.12;
           }
           .kpi-spark-card.kpi-clean.kpi-occ{
-            min-height: 142px !important;
+            min-height: 156px !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-spark-title{
+            font-size: .78rem !important;
+            font-weight: 900 !important;
+            letter-spacing: .11em !important;
+            opacity: 1 !important;
+            color: rgba(255,255,255,.98) !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-spark-value{
+            font-size: 2.34rem !important;
+            line-height: .95 !important;
+            letter-spacing: -.02em !important;
+            color: #ffffff !important;
+            text-shadow: 0 2px 12px rgba(0,0,0,.34) !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-spark-value.kpi-text{
+            font-size: 1.54rem !important;
+            line-height: 1.06 !important;
+            -webkit-line-clamp: 3 !important;
+            max-height: 3.38em !important;
+            color: #ffffff !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-inline-meta{
+            margin-top: 8px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 7px !important;
+            padding: 5px 11px !important;
+            border-radius: 999px !important;
+            font-size: .94rem !important;
+            font-weight: 900 !important;
+            line-height: 1.1 !important;
+            color: #ffffff !important;
+            background: rgba(20, 28, 50, .36) !important;
+            border: 1px solid rgba(255,255,255,.16) !important;
+            box-shadow: 0 6px 18px rgba(0,0,0,.16) !important;
+            text-shadow: 0 1px 8px rgba(0,0,0,.28) !important;
+            max-width: 100% !important;
+            white-space: normal !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-inline-meta *{
+            color: inherit !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-spark-icon{
+            width: 40px !important;
+            height: 40px !important;
+            border-radius: 13px !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 8px 20px rgba(0,0,0,.18) !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-sparkline-wrap.footer-divider{
+            min-height: 38px !important;
+            margin-top: 12px !important;
+            padding-top: 10px !important;
+            border-top: 1px solid rgba(255,255,255,.62) !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-sparkline-wrap.footer-divider .kpi-bottom-badges{
+            min-height: 26px !important;
+            gap: 10px !important;
+            align-items: center !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-sparkline-wrap.footer-divider .kpi-bottom-badge{
+            font-size: .97rem !important;
+            font-weight: 900 !important;
+            line-height: 1.14 !important;
+            color: #ffffff !important;
+            background: rgba(19, 28, 51, .34) !important;
+            border: 1px solid rgba(255,255,255,.18) !important;
+            border-radius: 999px !important;
+            padding: 5px 11px !important;
+            box-shadow: 0 6px 18px rgba(0,0,0,.16) !important;
+            text-shadow: 0 1px 8px rgba(0,0,0,.28) !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ .kpi-sparkline-wrap.footer-divider .kpi-bottom-badge *{
+            color: inherit !important;
+          }
+          /* Destaque extra para placa no card de motorista/top NR */
+          .kpi-spark-card.kpi-clean.kpi-occ.kpi-placa-top .kpi-inline-meta{
+            font-size: 1.08rem !important;
+            font-weight: 950 !important;
+            padding: 7px 14px !important;
+            letter-spacing: .01em !important;
+            background: rgba(37, 99, 235, .24) !important;
+            border: 1px solid rgba(255,255,255,.22) !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ.kpi-placa-value .kpi-spark-value.kpi-text{
+            font-size: 2.12rem !important;
+            line-height: 1.00 !important;
+            -webkit-line-clamp: 1 !important;
+            max-height: 1.22em !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            letter-spacing: -.02em !important;
+            font-weight: 950 !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ.kpi-mot-top-like .kpi-spark-value.kpi-text{
+            font-size: 1.86rem !important;
+            line-height: 1.02 !important;
+            -webkit-line-clamp: 2 !important;
+            max-height: 2.15em !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ.kpi-mot-top-like .kpi-spark-value .kpi-v-main{
+            font-size: 1.88rem !important;
+            font-weight: 950 !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ.kpi-mot-top-like .kpi-spark-value .kpi-v-sub{
+            display: block !important;
+            margin-top: 2px !important;
+            font-size: 1.10rem !important;
+            font-weight: 900 !important;
+            line-height: 1.00 !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ.kpi-remet-modelo .kpi-spark-value.kpi-text{
+            font-size: 1.18rem !important;
+            line-height: 1.08 !important;
+            -webkit-line-clamp: 3 !important;
+            max-height: 3.30em !important;
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+          }
+          .kpi-spark-card.kpi-clean.kpi-occ.kpi-remet-modelo.kpi-motivo-wrap .kpi-spark-value.kpi-text{
+            font-size: 1.86rem !important;
+            line-height: 1.02 !important;
+            -webkit-line-clamp: 2 !important;
+            max-height: 2.15em !important;
+            white-space: normal !important;
+            word-break: normal !important;
+            overflow-wrap: break-word !important;
+            letter-spacing: -.02em !important;
+            font-weight: 950 !important;
           }
           .kpi-spark-card.kpi-clean.kpi-plate{
             min-height: 128px !important;
@@ -4075,6 +4215,7 @@ def main():
                     gridcolor="rgba(148,163,184,.12)",
                     zeroline=False,
                     showline=False,
+                    showspikes=False,
                     tickfont=dict(color="rgba(226,232,240,.85)"),
                     titlefont=dict(color="rgba(226,232,240,.85)"),
                 )
@@ -4082,6 +4223,7 @@ def main():
                     showgrid=False,
                     zeroline=False,
                     showline=False,
+                    showspikes=False,
                     tickfont=dict(color="rgba(226,232,240,.88)"),
                     titlefont=dict(color="rgba(226,232,240,.85)"),
                 )
@@ -14023,38 +14165,136 @@ def main():
         except Exception:
             pass
 
+        # Placa com mais cancelamentos
+        placa_top_canc = "N/D"
+        placa_top_qtd = 0
+        try:
+            if (cancelamentos_tab4 is not None) and (not cancelamentos_tab4.empty):
+                _placa_col = _find_col_contains(cancelamentos_tab4, "placa")
+                if _placa_col and (_placa_col in cancelamentos_tab4.columns):
+                    _placa_norm = cancelamentos_tab4[_placa_col].fillna("").astype(str).str.strip()
+                    _placa_norm = _placa_norm[_placa_norm.ne("")]
+                    _vc = _placa_norm.value_counts()
+                    if not _vc.empty:
+                        placa_top_canc = str(_vc.index[0])
+                        placa_top_qtd = int(_vc.iloc[0])
+        except Exception:
+            pass
+
         col_op, col_sep, col_causa = st.columns([1.0, 0.035, 1.0], gap="large")
+
+        _CARD_H_CANC = 156
 
         with col_op:
             st.markdown("#### 🧯 Indicadores Operacionais")
-            c1, c2, c3 = st.columns(3)
+            r1c1, r1c2 = st.columns(2, gap="small")
+            with r1c1:
+                _kpi_card_moderno(
+                    "✖️",
+                    format_number(total_cancelamentos_periodo),
+                    "CANCELAMENTOS",
+                    "kpi-red",
+                    badge_text=f"📊 {taxa_cancel_txt} do total",
+                    force_compact=True,
+                    height_px=_CARD_H_CANC,
+                    extra_class="kpi-clean kpi-occ",
+                )
+            with r1c2:
+                _kpi_card_moderno(
+                    "📊",
+                    taxa_cancel_txt,
+                    "TAXA CANCELAMENTO",
+                    "kpi-purple",
+                    badge_text="🎯 Meta: 0,75%",
+                    force_compact=True,
+                    height_px=_CARD_H_CANC,
+                    extra_class="kpi-clean kpi-occ",
+                )
 
-            with c1:
-                _kpi_card_moderno("✖️", format_number(total_cancelamentos_periodo), "CANCELAMENTOS", "kpi-red", badge_text=f"📊 {taxa_cancel_txt} do total", height_px=128, extra_class="kpi-clean")
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-            with c2:
-                _kpi_card_moderno("📊", taxa_cancel_txt, "TAXA CANCELAMENTO", "kpi-purple", badge_text="🎯 Meta: 0,75%", height_px=128, extra_class="kpi-clean")
-
-            with c3:
-                _kpi_card_moderno("🏢", setor_top, "SETOR MAIS CRÍTICO", "kpi-teal", badge_text=f"✖️ {format_number(qtd_setor_top)} cancel.", height_px=128, extra_class="kpi-clean")
+            r2c1, r2c2 = st.columns(2, gap="small")
+            with r2c1:
+                _setor_val = _short_value(setor_top, 16) if setor_top else "N/D"
+                _kpi_card_moderno(
+                    "🏢",
+                    _setor_val,
+                    "SETOR MAIS CRÍTICO",
+                    "kpi-teal",
+                    badge_text=f"✖️ {format_number(qtd_setor_top)} cancel.",
+                    force_compact=True,
+                    height_px=_CARD_H_CANC,
+                    extra_class="kpi-clean kpi-occ",
+                )
+            with r2c2:
+                _kpi_card_moderno(
+                    "📆",
+                    format_number(media_diaria_cancelamentos),
+                    "MÉDIA DIÁRIA",
+                    "kpi-blue",
+                    badge_text="📌 cancel./dia",
+                    force_compact=True,
+                    height_px=_CARD_H_CANC,
+                    extra_class="kpi-clean kpi-occ",
+                )
 
         with col_sep:
             st.markdown('<div class="kpi-mid-sep-wrap"><div class="kpi-mid-sep"></div></div>', unsafe_allow_html=True)
 
         with col_causa:
             st.markdown("#### 🔎 Indicadores de Causa")
-            f1, f2, f3 = st.columns(3)
+            r1f1, r1f2 = st.columns(2, gap="small")
+            with r1f1:
+                _u_short = _short_value(usuario_mais_cancelamentos, 16) if usuario_mais_cancelamentos else "N/D"
+                _kpi_card_moderno(
+                    "👤",
+                    _u_short,
+                    "USUÁRIO TOP",
+                    "kpi-indigo",
+                    badge_text=f"✖️ {format_number(qtd_usuario_mais_cancelamentos)} cancel.",
+                    force_compact=True,
+                    height_px=_CARD_H_CANC,
+                    extra_class="kpi-clean kpi-occ kpi-causa kpi-mot-top-like",
+                )
+            with r1f2:
+                _m_short = str(motivo_mais_comum).strip() if motivo_mais_comum else "N/D"
+                _kpi_card_moderno(
+                    "📝",
+                    _m_short,
+                    "MOTIVO MAIS COMUM",
+                    "kpi-orange",
+                    badge_text=f"📌 {format_number(qtd_motivo_mais_comum)} ocorr.",
+                    force_compact=True,
+                    height_px=_CARD_H_CANC,
+                    extra_class="kpi-clean kpi-occ kpi-causa kpi-remet-modelo kpi-motivo-wrap",
+                )
 
-            with f1:
-                _u_short = _short_value(usuario_mais_cancelamentos, 18) if usuario_mais_cancelamentos else "N/D"
-                _kpi_card_moderno("👤", _u_short, "USUÁRIO TOP", "kpi-indigo", badge_text=f"✖️ {format_number(qtd_usuario_mais_cancelamentos)} cancel.", height_px=128, extra_class="kpi-clean")
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-            with f2:
-                _m_short = _short_value(motivo_mais_comum, 22) if motivo_mais_comum else "N/D"
-                _kpi_card_moderno("📝", _m_short, "MOTIVO MAIS COMUM", "kpi-orange", badge_text=f"📌 {format_number(qtd_motivo_mais_comum)} ocorr.", height_px=128, extra_class="kpi-clean")
-
-            with f3:
-                _kpi_card_moderno("📅", dow_top, "DIA MAIS CRÍTICO", "kpi-blue", badge_text=f"📌 {format_number(dow_top_qtd)} cancel.", height_px=128, extra_class="kpi-clean")
+            r2f1, r2f2 = st.columns(2, gap="small")
+            with r2f1:
+                _kpi_card_moderno(
+                    "📅",
+                    dow_top,
+                    "DIA MAIS CRÍTICO",
+                    "kpi-blue",
+                    badge_text=f"📌 {format_number(dow_top_qtd)} cancel.",
+                    force_compact=True,
+                    height_px=_CARD_H_CANC,
+                    extra_class="kpi-clean kpi-occ kpi-causa",
+                )
+            with r2f2:
+                _placa_short = _short_value(placa_top_canc, 12) if placa_top_canc else "N/D"
+                _kpi_card_moderno(
+                    "🚚",
+                    _placa_short,
+                    "PLACA MAIS CRÍTICA",
+                    "kpi-purple",
+                    badge_text=f"📌 {format_number(placa_top_qtd)} cancel.",
+                    force_compact=True,
+                    height_px=_CARD_H_CANC,
+                    extra_class="kpi-clean kpi-occ kpi-causa kpi-placa-value",
+                )
 
         st.markdown("---")
         # =================================================================
@@ -14230,21 +14470,11 @@ def main():
                     marker=dict(size=6, color="#FBBF24", line=dict(width=1, color="rgba(0,0,0,.35)")),
                     text=[_fmt_int_pt(v) if int(v) > 0 else "" for v in df_plot["_META_CANC"]],
                     textposition="bottom center",
-                    textfont=dict(size=11, color="#FBBF24", family="Inter"),
+                    textfont=dict(size=11, color="#FFFFFF", family="Inter"),
                     hoverinfo="skip",
                 ))
 
-                # Linha vertical no dia selecionado
-                try:
-                    fig_ctx.add_shape(
-                        type="line",
-                        x0=_cur_day, x1=_cur_day,
-                        y0=0, y1=1,
-                        xref="x", yref="paper",
-                        line=dict(color="rgba(226,232,240,.35)", width=2, dash="dot"),
-                    )
-                except Exception:
-                    pass
+                # Sem linha vertical de destaque para evitar a “listra branca” no gráfico.
 
                 # Tooltip premium (com ícones) — aplicado SÓ nas barras (evita tooltip duplicado)
                 _dfp = df_plot.copy()
@@ -14316,6 +14546,7 @@ def main():
                     showgrid=True,
                     gridcolor="rgba(148,163,184,.12)",
                     zeroline=False,
+                    showspikes=False,
                 )
 
                 fig_ctx.update_yaxes(
@@ -14324,6 +14555,7 @@ def main():
                     gridcolor="rgba(148,163,184,.10)",
                     zeroline=False,
                     rangemode="tozero",
+                    showspikes=False,
                 )
 
                 st.plotly_chart(_plotly_darkify(fig_ctx, height=520), use_container_width=True)
@@ -14410,7 +14642,7 @@ def main():
                             marker=dict(size=6, color="#FBBF24"),
                             text=[_fmt_int_pt(v) if int(v) > 0 else "" for v in df_plot_d["_META_CANC"]],
                             textposition="bottom center",
-                            textfont=dict(size=11, color="#FBBF24", family="Inter"),
+                            textfont=dict(size=11, color="#FFFFFF", family="Inter"),
                             hoverinfo="skip",
                         ))
 
@@ -14467,6 +14699,7 @@ def main():
                             showgrid=True,
                             gridcolor="rgba(148,163,184,.12)",
                             zeroline=False,
+                            showspikes=False,
                         )
 
                         fig_d.update_yaxes(
@@ -14475,6 +14708,7 @@ def main():
                             gridcolor="rgba(148,163,184,.10)",
                             zeroline=False,
                             rangemode="tozero",
+                            showspikes=False,
                         )
 
                         st.plotly_chart(_plotly_darkify(fig_d, height=520), use_container_width=True)
@@ -14595,6 +14829,7 @@ def main():
                             showgrid=True,
                             gridcolor="rgba(148,163,184,.12)",
                             zeroline=False,
+                            showspikes=False,
                         )
                         fig_evolucao_comparativa.update_yaxes(
                             title_text="Taxa (%)",
@@ -14604,6 +14839,7 @@ def main():
                             showgrid=True,
                             gridcolor="rgba(148,163,184,.10)",
                             zeroline=False,
+                            showspikes=False,
                         )
 
                         st.plotly_chart(fig_evolucao_comparativa, use_container_width=True)
@@ -19124,9 +19360,9 @@ def main():
                         _occ_focus_badge_a = "✨ AGUARDANDO SELEÇÃO"
                         _occ_focus_badge_b = "🏆 RANKING EM ESPERA"
                         _occ_focus_avatar = "TO"
-                        _occ_focus_metric_total_label = "Motoristas no recorte"
-                        _occ_focus_metric_total_value = format_number(_tot_mot)
-                        _occ_focus_chip_1 = f"🧾 Ocorrências: {format_number(_tot_nr)}"
+                        _occ_focus_metric_total_label = "NR inválidos"
+                        _occ_focus_metric_total_value = format_number(_tot_nr)
+                        _occ_focus_chip_1 = f"👤 {format_number(_tot_mot)} motoristas"
                         _occ_focus_chip_2 = f"📈 Taxa média: {str(f'{_occ_avg_taxa:.1f}%').replace('.', ',')}"
                         _occ_focus_avg_1_label = "Top atual"
                         _occ_focus_avg_1_value = _short_value(_occ_top_name, 22)
@@ -19766,8 +20002,44 @@ def main():
                                     tab_ins, tab_reg = st.tabs(["📈 KPIs & Insights", "📋 Registros"])
 
                                     with tab_ins:
-                                        # ✅ KPIs premium (mesmo estilo da 2ª imagem)
-                                        _CARD_H_MOT = 160
+                                        # ✅ KPIs premium — mesmo estilo do bloco modelo da 1ª imagem
+                                        _CARD_H_MOT = 156
+
+                                        try:
+                                            mot_value = f"<span class='kpi-v-main'>{_esc_html(_short_value(mot_disp, 18))}</span><br><span class='kpi-v-sub'>(CÓD {_esc_html(mot_cod_txt)})</span>"
+                                        except Exception:
+                                            mot_value = f"<span class='kpi-v-main'>{_esc_html(str(mot_disp or '—'))}</span><br><span class='kpi-v-sub'>(CÓD {_esc_html(str(mot_cod_txt or '—'))})</span>"
+
+                                        placa_top_value = "—"
+                                        placa_top_badge = None
+                                        try:
+                                            if (placa_col_raw is not None) and (placa_col_raw in df_m.columns):
+                                                _pl = (
+                                                    df_m[placa_col_raw]
+                                                    .fillna("")
+                                                    .astype(str)
+                                                    .str.strip()
+                                                    .str.upper()
+                                                    .replace({"": "SEM PLACA", "NAN": "SEM PLACA", "NONE": "SEM PLACA"})
+                                                )
+                                                _vc_pl = _pl.value_counts()
+                                                if len(_vc_pl) > 0:
+                                                    _pl_top = str(_vc_pl.index[0])
+                                                    _pl_cnt = int(_vc_pl.iloc[0])
+                                                    placa_top_value = f"<span class='kpi-v-main'>{_esc_html(_short_value(_pl_top, 10))}</span>"
+                                                    placa_top_badge = f"📌 {format_number(_pl_cnt)} ocorr."
+                                        except Exception:
+                                            placa_top_value = f"<span class='kpi-v-main'>{_esc_html(_short_value((placa_freq if placa_freq else '—'), 10))}</span>"
+                                            placa_top_badge = (f"📌 {format_number(em_v)} ocorr." if em_v else None)
+
+                                        remet_top_value = None
+                                        remet_top_badge = None
+                                        try:
+                                            remet_top_value = f"<span class='kpi-v-main'>{_esc_html(_first_name_tokens(rem_top, 2, max_len=22))}</span>"
+                                        except Exception:
+                                            remet_top_value = f"<span class='kpi-v-main'>{_esc_html(str(rem_short or '—'))}</span>"
+                                        if rem_cnt:
+                                            remet_top_badge = f"📌 {format_number(rem_cnt)} ocorr."
 
                                         h_ops, h_causa = st.columns([1, 1], gap="large")
                                         with h_ops:
@@ -19778,28 +20050,29 @@ def main():
                                         c_ops, c_sep, c_causa = st.columns([1, 0.035, 1], gap="large")
 
                                         with c_ops:
-                                            o1, o2, o3 = st.columns(3, gap="small")
+                                            try:
+                                                _vol_per = (float(vol_total) / float(em_v)) if (em_v and (vol_total is not None) and (not pd.isna(vol_total))) else 0.0
+                                            except Exception:
+                                                _vol_per = 0.0
+                                            try:
+                                                _peso_per = (float(peso_total) / float(em_v)) if (em_v and (peso_total is not None) and (not pd.isna(peso_total))) else 0.0
+                                            except Exception:
+                                                _peso_per = 0.0
+
+                                            o1, o2 = st.columns(2, gap="small")
                                             with o1:
                                                 _badge_base = f"🧾 Base: {format_number(total_em_mot)} emissões" if total_em_mot else None
-                                                _badge_taxa = f"📈 Taxa: {taxa_txt}" if taxa_txt else None
                                                 _kpi_card_moderno(
                                                     "🧾",
                                                     format_number(em_v),
                                                     "REGISTRO DE NR",
                                                     "kpi-blue",
-                                                    badge_text=_badge_base or _badge_taxa,
-                                                    subline=_badge_taxa if (_badge_base and _badge_taxa) else None,
+                                                    badge_text=_badge_base,
                                                     force_compact=True,
                                                     extra_class="kpi-clean kpi-occ",
                                                     height_px=_CARD_H_MOT,
                                                 )
-
                                             with o2:
-                                                try:
-                                                    _vol_per = (float(vol_total) / float(em_v)) if (em_v and (vol_total is not None) and (not pd.isna(vol_total))) else 0.0
-                                                except Exception:
-                                                    _vol_per = 0.0
-
                                                 _kpi_card_moderno(
                                                     "📦",
                                                     _vol_txt,
@@ -19811,12 +20084,10 @@ def main():
                                                     height_px=_CARD_H_MOT,
                                                 )
 
-                                            with o3:
-                                                try:
-                                                    _peso_per = (float(peso_total) / float(em_v)) if (em_v and (peso_total is not None) and (not pd.isna(peso_total))) else 0.0
-                                                except Exception:
-                                                    _peso_per = 0.0
+                                            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
+                                            o3, o4 = st.columns(2, gap="small")
+                                            with o3:
                                                 _kpi_card_moderno(
                                                     "⚖️",
                                                     _peso_txt,
@@ -19827,51 +20098,76 @@ def main():
                                                     extra_class="kpi-clean kpi-occ",
                                                     height_px=_CARD_H_MOT,
                                                 )
+                                            with o4:
+                                                _kpi_card_moderno(
+                                                    "📈",
+                                                    taxa_txt,
+                                                    "TAXA NR",
+                                                    "kpi-indigo",
+                                                    badge_text=(f"🚚 {format_number(_placas_nr_qtd)} placas" if _placas_nr_qtd else "—"),
+                                                    force_compact=True,
+                                                    extra_class="kpi-clean kpi-occ",
+                                                    height_px=_CARD_H_MOT,
+                                                )
 
                                         with c_sep:
                                             st.markdown('<div class="kpi-mid-sep-wrap"><div class="kpi-mid-sep"></div></div>', unsafe_allow_html=True)
 
                                         with c_causa:
-                                            e1, e2, e3 = st.columns(3, gap="small")
+                                            try:
+                                                _pico_day_value = _esc_html(pico_dia_dt.strftime('%d/%m/%Y')) if (pico_dia_dt is not None) else "—"
+                                            except Exception:
+                                                _pico_day_value = "—"
 
+                                            e1, e2 = st.columns(2, gap="small")
                                             with e1:
                                                 _kpi_card_moderno(
                                                     "👤",
-                                                    f"{mot_disp} (CÓD {mot_cod_txt})",
+                                                    (mot_value if mot_value not in [None, "", "-"] else "N/D"),
                                                     "MOTORISTA TOP NR",
                                                     "kpi-blue",
-                                                    badge_text=f"🧾 {format_number(em_v)} {_nr_txt}",
-                                                    subline=(f"🚚 {placa_freq}" if placa_freq else None),
+                                                    badge_text=(f"📌 {format_number(em_v)} ocorr." if em_v else "—"),
                                                     force_compact=True,
-                                                    extra_class="kpi-clean kpi-occ",
+                                                    extra_class="kpi-clean kpi-occ kpi-causa kpi-mot-top-like",
                                                     height_px=_CARD_H_MOT,
                                                 )
-
                                             with e2:
                                                 _kpi_card_moderno(
                                                     "🚚",
-                                                    (placa_freq if placa_freq else "—"),
+                                                    (placa_top_value if placa_top_value not in [None, ""] else "N/D"),
                                                     "PLACA MAIS COMUM (NR)",
                                                     "kpi-purple",
-                                                    badge_text=f"🧾 {format_number(em_v)} {_nr_txt}",
+                                                    badge_text=(placa_top_badge if placa_top_badge not in [None, ""] else "—"),
                                                     force_compact=True,
-                                                    extra_class="kpi-clean kpi-occ",
+                                                    extra_class="kpi-clean kpi-occ kpi-causa kpi-placa-value",
                                                     height_px=_CARD_H_MOT,
                                                 )
 
+                                            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+                                            e3, e4 = st.columns(2, gap="small")
                                             with e3:
-                                                _rem_badge = f"{format_number(rem_cnt)} ({rem_pct:.0f}%)" if rem_cnt else None
                                                 _kpi_card_moderno(
                                                     "🏷️",
-                                                    rem_short,
+                                                    (remet_top_value if remet_top_value not in [None, ""] else "N/D"),
                                                     "REMETENTE MAIS COMUM (NR)",
                                                     "kpi-orange",
-                                                    badge_text=(f"🧾 {_rem_badge}" if _rem_badge else None),
+                                                    badge_text=(remet_top_badge if remet_top_badge not in [None, ""] else "—"),
                                                     force_compact=True,
-                                                    extra_class="kpi-clean kpi-occ",
+                                                    extra_class="kpi-clean kpi-occ kpi-causa kpi-remet-modelo",
                                                     height_px=_CARD_H_MOT,
                                                 )
-
+                                            with e4:
+                                                _kpi_card_moderno(
+                                                    "📅",
+                                                    _pico_day_value,
+                                                    "DIA PICO NR",
+                                                    "kpi-indigo",
+                                                    badge_text=(f"📌 {format_number(pico_dia)} ocorr." if pico_dia else "—"),
+                                                    force_compact=True,
+                                                    extra_class="kpi-clean kpi-occ kpi-causa",
+                                                    height_px=_CARD_H_MOT,
+                                                )
                                         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
                                         # -----------------------
