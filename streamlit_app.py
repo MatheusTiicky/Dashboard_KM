@@ -19475,6 +19475,39 @@ def main():
                                 _occ_top_name = "—"
                                 _occ_top_occ = 0
 
+                        def _occ_top_remetente(_df_src):
+                            try:
+                                if (
+                                    (_df_src is None)
+                                    or (not isinstance(_df_src, pd.DataFrame))
+                                    or _df_src.empty
+                                    or (rem_col_raw is None)
+                                    or (rem_col_raw not in _df_src.columns)
+                                ):
+                                    return ("SEM REMETENTE", "Sem base de remetente")
+
+                                _r = (
+                                    _df_src[rem_col_raw]
+                                    .fillna("")
+                                    .astype(str)
+                                    .str.strip()
+                                    .replace({"": "SEM REMETENTE"})
+                                )
+                                _vc = _r.value_counts()
+                                if len(_vc) == 0:
+                                    return ("SEM REMETENTE", "Sem base de remetente")
+
+                                _rm_top = str(_vc.index[0]).strip()
+                                _rm_cnt = int(_vc.iloc[0])
+                                return (
+                                    _first_name_tokens(_rm_top, 2, max_len=20).upper(),
+                                    f"{format_number(_rm_cnt)} ocorrências",
+                                )
+                            except Exception:
+                                return ("SEM REMETENTE", "Sem base de remetente")
+
+                        _occ_top_rem_name, _occ_top_rem_note = _occ_top_remetente(df_det_base)
+
                         _occ_updated_txt = "--/--/----"
                         try:
                             if (dt_col_raw is not None) and (dt_col_raw in df_det_base.columns):
@@ -19519,9 +19552,9 @@ def main():
                         _occ_focus_context_1_label = "Atualizado em"
                         _occ_focus_context_1_value = _occ_updated_txt
                         _occ_focus_context_1_note = "Última data disponível"
-                        _occ_focus_context_2_label = "Controle ativo"
-                        _occ_focus_context_2_value = _short_value(_occ_q_tbl or _occ_type_tbl, 20).upper()
-                        _occ_focus_context_2_note = "Filtro aplicado"
+                        _occ_focus_context_2_label = "Remetente mais comum"
+                        _occ_focus_context_2_value = _occ_top_rem_name
+                        _occ_focus_context_2_note = _occ_top_rem_note
                         _occ_focus_context_3_label = "Top atual"
                         _occ_focus_context_3_value = _short_value(_occ_top_name, 20)
                         _occ_focus_context_3_note = f"{format_number(_occ_top_occ)} ocorrências"
@@ -19578,9 +19611,12 @@ def main():
                             _occ_focus_context_1_label = "Atualizado em"
                             _occ_focus_context_1_value = _occ_updated_txt
                             _occ_focus_context_1_note = "Última data disponível"
-                            _occ_focus_context_2_label = "Controle ativo"
-                            _occ_focus_context_2_value = _short_value(_occ_q_tbl or _occ_type_tbl, 20).upper()
-                            _occ_focus_context_2_note = "Filtro aplicado"
+                            _mot_rem_name, _mot_rem_note = _occ_top_remetente(
+                                df_det_base[df_det_base["_MOTORISTA"].astype(str) == _mot_sel].copy()
+                            )
+                            _occ_focus_context_2_label = "Remetente mais comum"
+                            _occ_focus_context_2_value = _mot_rem_name
+                            _occ_focus_context_2_note = _mot_rem_note
                             _occ_focus_context_3_label = "Posição"
                             _occ_focus_context_3_value = f"#{_mot_rank}" if _mot_rank else "—"
                             _occ_focus_context_3_note = "Ranking no recorte"
