@@ -5473,8 +5473,8 @@ def main():
                         .cmp-date .d{font-size:.92rem;font-weight:950;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
                         .cmp-date .tag{font-size:.70rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.72);font-weight:900;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.12);white-space:nowrap;}
                         .cmp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-                        .cmp-card{padding:11px 12px 10px;border-radius:16px;border:1px solid rgba(255,255,255,.16);background:linear-gradient(135deg, rgba(2,6,23,.82), rgba(0,0,0,.60));
-                            box-shadow:0 10px 28px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.06);position:relative;overflow:hidden;}
+                        .cmp-card{padding:11px 12px 10px;border-radius:16px;border:1px solid rgba(255,255,255,.09);background:linear-gradient(135deg, rgba(2,6,23,.82), rgba(0,0,0,.60));
+                            box-shadow:0 10px 28px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.35);position:relative;overflow:hidden;}
                         .cmp-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
                         .cmp-left{display:flex;align-items:center;gap:10px;min-width:0;}
                         .cmp-ico{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);font-size:20px;flex:0 0 auto;}
