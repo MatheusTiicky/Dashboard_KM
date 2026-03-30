@@ -3594,10 +3594,10 @@ def main():
             justify-content:flex-start !important;
           }
 
-          .kpi-spark-delta{margin-top:6px; font-size:.82rem; font-weight:800; opacity:1; display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; padding:3px 10px; border-radius:999px; background: rgba(0,0,0,.18); border: 1px solid rgba(255,255,255,.16); color: rgba(255,255,255,.97); text-shadow: 0 2px 10px rgba(0,0,0,.35);}
+          .kpi-spark-delta{margin-top:6px; font-size:.82rem; font-weight:800; opacity:1; display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap; padding:4px 10px; border-radius:999px; background: rgba(45,55,72,.42); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06); color: rgba(255,255,255,.98); text-shadow: 0 2px 10px rgba(0,0,0,.35);}
           .kpi-spark-delta span{font-weight:650; opacity:.92; color: rgba(255,255,255,.88);}
-          .kpi-spark-delta.good{background: rgba(16,185,129,.22); border: 1px solid rgba(16,185,129,.40); color: rgba(255,255,255,.98);}
-          .kpi-spark-delta.bad{background: rgba(239,68,68,.22); border: 1px solid rgba(239,68,68,.40); color: rgba(255,255,255,.98);}
+          .kpi-spark-delta.good{background: rgba(45,55,72,.42); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06); color: rgba(255,255,255,.98);}
+          .kpi-spark-delta.bad{background: rgba(45,55,72,.42); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06); color: rgba(255,255,255,.98);}
           .kpi-spark-sub{margin-top:6px; font-size:.84rem; font-weight:800; opacity:.95; color: rgba(255,255,255,.92); line-height:1.15; text-shadow: 0 2px 10px rgba(0,0,0,.35);}
 
           /* Controle de Ocorrências — KPIs mais legíveis (seleção de motorista) */
@@ -11701,8 +11701,9 @@ def main():
   display:inline-flex;
   align-items:center;
   gap:8px;
-  border: 1px solid rgba(255,255,255,.18);
-  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(45,55,72,.42);
+  box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06);
 }
 .kpi-spark-delta::before{
   content:"↔";
@@ -11710,22 +11711,23 @@ def main():
   opacity:.92;
 }
 .kpi-spark-delta.good{
-  background: rgba(16,185,129,.22);
-  border-color: rgba(16,185,129,.45);
-  box-shadow: 0 10px 28px rgba(16,185,129,.18);
+  background: rgba(45,55,72,.42);
+  border-color: rgba(255,255,255,.14);
+  box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06);
 }
 .kpi-spark-delta.good::before{ content:"▲"; }
 
 .kpi-spark-delta.bad{
-  background: rgba(239,68,68,.22);
-  border-color: rgba(239,68,68,.45);
-  box-shadow: 0 10px 28px rgba(239,68,68,.18);
+  background: rgba(45,55,72,.42);
+  border-color: rgba(255,255,255,.14);
+  box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06);
 }
 .kpi-spark-delta.bad::before{ content:"▼"; }
 
 .kpi-spark-delta.neutral{
-  background: rgba(148,163,184,.18);
-  border-color: rgba(148,163,184,.28);
+  background: rgba(45,55,72,.42);
+  border-color: rgba(255,255,255,.14);
+  box-shadow: 0 4px 12px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.06);
 }
 .kpi-spark-delta span{ opacity:.85; font-weight: 750; }
 
