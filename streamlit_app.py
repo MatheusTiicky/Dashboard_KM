@@ -17905,49 +17905,91 @@ def main():
                     .rename(columns={"_MOTIVO": "Motivo_Principal_Placa"})
                 )
 
-                st.markdown("#### 🚚 Cancelamentos por placa — visão em blocos")
+                c3, c4 = st.columns([1.15, 1.35], gap="large")
 
-                df_placa_nodes = (
-                    df_pr
-                    .groupby(["_PLACA"], as_index=False)
-                    .agg(
-                        Cancelamentos=("_PLACA", "size"),
-                        Volume_Afetado=("_VOL_AFETADO", "sum"),
-                        Peso_Afetado=("_PESO_AFETADO", "sum"),
+                with c3:
+                    df_combo_tbl = df_combo.rename(columns={
+                        "_PLACA": "Placa",
+                        "_REMETENTE": "Cliente Remetente",
+                        "Cancelamentos": "Cancelamentos",
+                        "Volume_Afetado": "Volume Afetado",
+                        "Peso_Afetado": "Peso Afetado",
+                    }).copy()
+
+                    for _c in ["Cancelamentos", "Volume Afetado", "Peso Afetado"]:
+                        if _c in df_combo_tbl.columns:
+                            df_combo_tbl[_c] = df_combo_tbl[_c].apply(format_number)
+
+                    st.dataframe(
+                        df_combo_tbl[["Placa", "Cliente Remetente", "Cancelamentos", "Volume Afetado", "Peso Afetado"]],
+                        hide_index=True,
+                        use_container_width=True,
+                        height=420,
                     )
-                    .merge(df_mot_placa, on="_PLACA", how="left")
-                )
 
-                top_placas_view = df_placas.head(top_n_pr)["_PLACA"].tolist()
-                if top_placas_view:
-                    df_placa_nodes = df_placa_nodes[df_placa_nodes["_PLACA"].isin(top_placas_view)].copy()
+                with c4:
+                    # Treemap com texto completo dentro de cada quadrado
+                    # (Motivo principal + cancelamentos + volumes + peso)
+                    df_placa_nodes = (
+                        df_combo
+                        .groupby(["_PLACA"], as_index=False)
+                        .agg(
+                            Cancelamentos=("Cancelamentos", "sum"),
+                            Volume_Afetado=("Volume_Afetado", "sum"),
+                            Peso_Afetado=("Peso_Afetado", "sum"),
+                            value=(metric_num_col, "sum"),
+                        )
+                        .merge(df_mot_placa, on="_PLACA", how="left")
+                    )
 
-                df_placa_nodes["value"] = df_placa_nodes[metric_num_col].fillna(0)
-                df_placa_nodes = df_placa_nodes.sort_values("value", ascending=False).copy()
-                df_placa_nodes["_txt_canc"] = df_placa_nodes["Cancelamentos"].apply(format_number)
-                df_placa_nodes["_txt_vol"] = df_placa_nodes["Volume_Afetado"].apply(format_number)
-                df_placa_nodes["_txt_peso"] = df_placa_nodes["Peso_Afetado"].apply(format_number)
-                df_placa_nodes["_motivo_full"] = df_placa_nodes["Motivo_Principal_Placa"].fillna("SEM MOTIVO").astype(str)
-                df_placa_nodes["_motivo_short"] = df_placa_nodes["_motivo_full"].apply(lambda x: _short_value(x, 34))
+                    df_placa_nodes["_txt_canc"] = df_placa_nodes["Cancelamentos"].apply(format_number)
+                    df_placa_nodes["_txt_vol"] = df_placa_nodes["Volume_Afetado"].apply(format_number)
+                    df_placa_nodes["_txt_peso"] = df_placa_nodes["Peso_Afetado"].apply(format_number)
+                    df_placa_nodes["_motivo_full"] = df_placa_nodes["Motivo_Principal_Placa"].fillna("SEM MOTIVO").astype(str)
+                    df_placa_nodes["_motivo_short"] = df_placa_nodes["_motivo_full"].apply(lambda x: _short_value(x, 28))
 
-                palette_cards = [
-                    "#7ab7e6", "#f0a5a5", "#77d996", "#f1cc68", "#1471c8",
-                    "#ff2a2a", "#34b3aa", "#7f66ff", "#ff8a3d", "#4ec4ff",
-                ]
+                    # Monta nós (pais + folhas) explicitamente para controlar o texto
+                    labels, parents, values, ids, customdata = [], [], [], [], []
 
-                if not df_placa_nodes.empty:
+                    # Nós pais (placas)
+                    for _, r in df_placa_nodes.iterrows():
+                        _pid = str(r["_PLACA"])  # id do nó pai
+                        labels.append(str(r["_PLACA"]))
+                        parents.append("")
+                        values.append(float(r["value"]) if pd.notna(r["value"]) else 0.0)
+                        ids.append(_pid)
+                        customdata.append([
+                            str(r["_motivo_short"]),
+                            str(r["_txt_canc"]),
+                            str(r["_txt_vol"]),
+                            str(r["_txt_peso"]),
+                            str(r["_motivo_full"]),
+                        ])
+
+                    # Nós folhas (placa × remetente)
+                    for i, r in df_combo.reset_index(drop=True).iterrows():
+                        _pid = str(r["_PLACA"])  # parent id
+                        _id = f"{_pid}||{i}"  # id único
+                        labels.append(str(r["_REM_CURTO"]))
+                        parents.append(_pid)
+                        values.append(float(r[metric_num_col]) if pd.notna(r[metric_num_col]) else 0.0)
+                        ids.append(_id)
+                        customdata.append([
+                            str(r["_motivo_short"]),
+                            str(r["_txt_canc"]),
+                            str(r["_txt_vol"]),
+                            str(r["_txt_peso"]),
+                            str(r["_motivo_full"]),
+                        ])
+
                     fig_tree = go.Figure(
                         go.Treemap(
-                            labels=df_placa_nodes["_PLACA"].astype(str),
-                            parents=[""] * len(df_placa_nodes),
-                            values=df_placa_nodes["value"],
-                            customdata=np.column_stack([
-                                df_placa_nodes["_motivo_short"],
-                                df_placa_nodes["_txt_canc"],
-                                df_placa_nodes["_txt_vol"],
-                                df_placa_nodes["_txt_peso"],
-                                df_placa_nodes["_motivo_full"],
-                            ]),
+                            labels=labels,
+                            parents=parents,
+                            ids=ids,
+                            values=values,
+                            branchvalues="total",
+                            customdata=customdata,
                             texttemplate=(
                                 "<b>%{label}</b><br>"
                                 "🧾 %{customdata[0]}<br>"
@@ -17955,38 +17997,24 @@ def main():
                                 "📦 %{customdata[2]}<br>"
                                 "⚖️ %{customdata[3]}"
                             ),
-                            textposition="middle center",
                             hovertemplate=(
                                 "<b>%{label}</b><br>"
-                                "🧾 Motivo principal: %{customdata[4]}<br>"
+                                "🧾 Motivo principal: <br>"
                                 "❌ Cancelamentos: %{customdata[1]}<br>"
                                 "📦 Volumes afetados: %{customdata[2]}<br>"
                                 "⚖️ Peso afetado: %{customdata[3]}"
                                 "<extra></extra>"
                             ),
-                            marker=dict(
-                                colors=[palette_cards[i % len(palette_cards)] for i in range(len(df_placa_nodes))],
-                                line=dict(color="rgba(8,15,30,.85)", width=3),
-                            ),
-                            tiling=dict(pad=4),
-                            branchvalues="total",
-                            sort=False,
-                            pathbar=dict(visible=False),
                         )
                     )
 
-                    fig_tree.update_traces(
-                        textfont=dict(size=16, color="#f8fafc"),
-                        root_color="rgba(0,0,0,0)",
-                    )
                     fig_tree.update_layout(
-                        height=780,
-                        margin=dict(t=8, b=8, l=8, r=8),
-                        uniformtext=dict(minsize=11, mode="hide"),
+                        height=460,
+                        margin=dict(t=10, b=10, l=10, r=10),
+                        uniformtext=dict(minsize=9, mode="hide"),
                     )
                     st.plotly_chart(fig_tree, use_container_width=True)
-                else:
-                    st.info("Nenhum cancelamento para montar a visão por placa no recorte atual.")
+
                 # -------------------------
                 # 🔎 Detalhar (tabela bruta)
                 # -------------------------
