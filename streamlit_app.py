@@ -17905,26 +17905,7 @@ def main():
                     .rename(columns={"_MOTIVO": "Motivo_Principal_Placa"})
                 )
 
-                st.markdown("#### 🚚 Cancelamentos por placa — tabela dentro de cada placa")
-
-                df_combo_tbl = df_combo.rename(columns={
-                    "_PLACA": "Placa",
-                    "_REMETENTE": "Cliente Remetente",
-                    "Cancelamentos": "Cancelamentos",
-                    "Volume_Afetado": "Volume Afetado",
-                    "Peso_Afetado": "Peso Afetado",
-                }).copy()
-
-                for _c in ["Cancelamentos", "Volume Afetado", "Peso Afetado"]:
-                    if _c in df_combo_tbl.columns:
-                        df_combo_tbl[_c] = df_combo_tbl[_c].apply(format_number)
-
-                st.dataframe(
-                    df_combo_tbl[["Placa", "Cliente Remetente", "Cancelamentos", "Volume Afetado", "Peso Afetado"]],
-                    hide_index=True,
-                    use_container_width=True,
-                    height=240,
-                )
+                st.markdown("#### 🚚 Cancelamentos por placa — visão em blocos")
 
                 df_placa_nodes = (
                     df_pr
@@ -17936,240 +17917,76 @@ def main():
                     )
                     .merge(df_mot_placa, on="_PLACA", how="left")
                 )
+
+                top_placas_view = df_placas.head(top_n_pr)["_PLACA"].tolist()
+                if top_placas_view:
+                    df_placa_nodes = df_placa_nodes[df_placa_nodes["_PLACA"].isin(top_placas_view)].copy()
+
+                df_placa_nodes["value"] = df_placa_nodes[metric_num_col].fillna(0)
+                df_placa_nodes = df_placa_nodes.sort_values("value", ascending=False).copy()
                 df_placa_nodes["_txt_canc"] = df_placa_nodes["Cancelamentos"].apply(format_number)
                 df_placa_nodes["_txt_vol"] = df_placa_nodes["Volume_Afetado"].apply(format_number)
                 df_placa_nodes["_txt_peso"] = df_placa_nodes["Peso_Afetado"].apply(format_number)
                 df_placa_nodes["_motivo_full"] = df_placa_nodes["Motivo_Principal_Placa"].fillna("SEM MOTIVO").astype(str)
-
-                ctrc_col_card = None
-                for _cand in ["CTRC_CANCELADOS", "Serie/Numero CTRC", "SÉRIE/NUMERO CTRC", "CTRC"]:
-                    if _cand in df_pr.columns:
-                        ctrc_col_card = _cand
-                        break
-                if ctrc_col_card is None:
-                    ctrc_col_card = _find_col_contains(df_pr, "ctrc")
-
-                data_canc_col_card = None
-                for _cand in ["DATA_CANCELADO", "Data do Cancelamento", "DATA_CANCEL", "DATA EM CANCELAMENTO"]:
-                    if _cand in df_pr.columns:
-                        data_canc_col_card = _cand
-                        break
-                if data_canc_col_card is None:
-                    data_canc_col_card = (
-                        _find_col_contains(df_pr, "data", "cancel")
-                        or ("DATA_EMISSÃO" if "DATA_EMISSÃO" in df_pr.columns else None)
-                    )
-
-                pagador_col_card = None
-                for _cand in ["Cliente Pagador", "CLIENTE_PAGADOR"]:
-                    if _cand in df_pr.columns:
-                        pagador_col_card = _cand
-                        break
-                if pagador_col_card is None:
-                    pagador_col_card = _find_col_contains(df_pr, "cliente", "pagador") or _find_col_contains(df_pr, "pagador")
-
-                motivo_col_card = None
-                for _cand in ["MOTIVO", "Motivo do Cancelamento", "MOTIVO_CANCELAMENTO", "MOTIVO_CANCELADO"]:
-                    if _cand in df_pr.columns:
-                        motivo_col_card = _cand
-                        break
-                if motivo_col_card is None:
-                    motivo_col_card = _find_col_contains(df_pr, "motivo")
-
-                top_placas_cards = df_placas.head(top_n_pr)["_PLACA"].tolist()
-                df_cards = df_pr[df_pr["_PLACA"].isin(top_placas_cards)].copy()
-
-                if data_canc_col_card and (data_canc_col_card in df_cards.columns):
-                    _dt_tmp = pd.to_datetime(df_cards[data_canc_col_card], errors="coerce")
-                    _has_time = (_dt_tmp.dt.hour.fillna(0).ne(0) | _dt_tmp.dt.minute.fillna(0).ne(0) | _dt_tmp.dt.second.fillna(0).ne(0)).any()
-                    df_cards["_DATA_CARD_FMT"] = _dt_tmp.dt.strftime("%d/%m/%Y %H:%M" if _has_time else "%d/%m/%Y").fillna("")
-                else:
-                    df_cards["_DATA_CARD_FMT"] = ""
-
-                def _fmt_card_cell(v, use_number=False):
-                    if pd.isna(v):
-                        return ""
-                    if use_number:
-                        try:
-                            return format_number(v)
-                        except Exception:
-                            return str(v)
-                    return str(v)
+                df_placa_nodes["_motivo_short"] = df_placa_nodes["_motivo_full"].apply(lambda x: _short_value(x, 34))
 
                 palette_cards = [
                     "#7ab7e6", "#f0a5a5", "#77d996", "#f1cc68", "#1471c8",
                     "#ff2a2a", "#34b3aa", "#7f66ff", "#ff8a3d", "#4ec4ff",
                 ]
 
-                placa_stats_map = {
-                    str(r["_PLACA"]): {
-                        "motivo": str(r["_motivo_full"]),
-                        "cancelamentos": str(r["_txt_canc"]),
-                        "volumes": str(r["_txt_vol"]),
-                        "peso": str(r["_txt_peso"]),
-                    }
-                    for _, r in df_placa_nodes.iterrows()
-                }
-
-                html_cards = ["""
-                <style>
-                .placa-grid-cancel {
-                    display:grid;
-                    grid-template-columns:repeat(auto-fit, minmax(520px, 1fr));
-                    gap:14px;
-                    margin-top:8px;
-                }
-                .placa-card-cancel {
-                    background:#0b1220;
-                    border:1px solid rgba(255,255,255,.12);
-                    border-top:6px solid var(--placa-color, #4ec4ff);
-                    border-radius:16px;
-                    overflow:hidden;
-                    box-shadow:0 10px 28px rgba(0,0,0,.18);
-                }
-                .placa-card-head {
-                    padding:12px 14px 10px 14px;
-                    background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015));
-                    border-bottom:1px solid rgba(255,255,255,.08);
-                }
-                .placa-card-title {
-                    font-size:18px;
-                    font-weight:800;
-                    color:#f8fafc;
-                    margin-bottom:8px;
-                }
-                .placa-card-meta {
-                    display:flex;
-                    flex-wrap:wrap;
-                    gap:8px;
-                    margin-bottom:8px;
-                }
-                .placa-chip {
-                    display:inline-flex;
-                    align-items:center;
-                    gap:6px;
-                    padding:5px 9px;
-                    border-radius:999px;
-                    background:rgba(255,255,255,.08);
-                    color:#e5eefb;
-                    font-size:12px;
-                    line-height:1;
-                    border:1px solid rgba(255,255,255,.08);
-                }
-                .placa-card-motivo {
-                    font-size:12px;
-                    color:#d7e3f4;
-                    opacity:.96;
-                }
-                .placa-card-table-wrap {
-                    padding:0 10px 10px 10px;
-                }
-                .placa-card-scroll {
-                    max-height:320px;
-                    overflow:auto;
-                    border-radius:12px;
-                    border:1px solid rgba(255,255,255,.08);
-                }
-                .placa-card-table {
-                    width:100%;
-                    border-collapse:collapse;
-                    font-size:12px;
-                    color:#e8eef8;
-                    background:rgba(255,255,255,.02);
-                }
-                .placa-card-table thead th {
-                    position:sticky;
-                    top:0;
-                    z-index:1;
-                    background:#111b2d;
-                    color:#dce8fa;
-                    text-align:left;
-                    padding:8px 9px;
-                    white-space:nowrap;
-                    border-bottom:1px solid rgba(255,255,255,.08);
-                }
-                .placa-card-table tbody td {
-                    padding:7px 9px;
-                    vertical-align:top;
-                    border-bottom:1px solid rgba(255,255,255,.06);
-                }
-                .placa-card-table tbody tr:nth-child(even) {
-                    background:rgba(255,255,255,.03);
-                }
-                .placa-card-empty {
-                    padding:16px;
-                    color:#dbe7f6;
-                    font-size:13px;
-                }
-                </style>
-                <div class="placa-grid-cancel">
-                """]
-
-                for _idx, _placa in enumerate(top_placas_cards):
-                    _color = palette_cards[_idx % len(palette_cards)]
-                    _stats = placa_stats_map.get(str(_placa), {})
-                    _rows = df_cards[df_cards["_PLACA"] == _placa].copy()
-                    if data_canc_col_card and (data_canc_col_card in _rows.columns):
-                        _rows = _rows.sort_values(by=data_canc_col_card, ascending=False, na_position="last")
-
-                    _table_rows = []
-                    if not _rows.empty:
-                        for _, _rr in _rows.iterrows():
-                            _table_rows.append(
-                                "<tr>"
-                                f"<td>{_esc_html(_fmt_card_cell(_rr.get(ctrc_col_card, '')))}</td>"
-                                f"<td>{_esc_html(_rr.get('_DATA_CARD_FMT', ''))}</td>"
-                                f"<td>{_esc_html(_fmt_card_cell(_rr.get(placa_col, _placa)))}</td>"
-                                f"<td>{_esc_html(_fmt_card_cell(_rr.get(remet_col, '')))}</td>"
-                                f"<td>{_esc_html(_fmt_card_cell(_rr.get(pagador_col_card, '')))}</td>"
-                                f"<td>{_esc_html(_fmt_card_cell(_rr.get(motivo_col_card, '')))}</td>"
-                                f"<td>{_esc_html(_fmt_card_cell(_rr.get(_vol_col_pr, ''), use_number=bool(_vol_col_pr and _vol_col_pr in _rows.columns)))}</td>"
-                                f"<td>{_esc_html(_fmt_card_cell(_rr.get(_peso_col_pr, ''), use_number=bool(_peso_col_pr and _peso_col_pr in _rows.columns)))}</td>"
-                                "</tr>"
-                            )
-
-                    _table_html = (
-                        "<div class='placa-card-empty'>Nenhum cancelamento para esta placa no recorte atual.</div>"
-                        if not _table_rows else
-                        (
-                            "<div class='placa-card-scroll'>"
-                            "<table class='placa-card-table'>"
-                            "<thead><tr>"
-                            "<th>CTRC_CANCELADOS</th>"
-                            "<th>DATA_CANCELADO</th>"
-                            "<th>PLACA_COLETA</th>"
-                            "<th>Cliente Remetente</th>"
-                            "<th>Cliente Pagador</th>"
-                            "<th>MOTIVO</th>"
-                            "<th>Quantidade de Volumes</th>"
-                            "<th>Peso Real em Kg</th>"
-                            "</tr></thead>"
-                            f"<tbody>{''.join(_table_rows)}</tbody>"
-                            "</table>"
-                            "</div>"
+                if not df_placa_nodes.empty:
+                    fig_tree = go.Figure(
+                        go.Treemap(
+                            labels=df_placa_nodes["_PLACA"].astype(str),
+                            parents=[""] * len(df_placa_nodes),
+                            values=df_placa_nodes["value"],
+                            customdata=np.column_stack([
+                                df_placa_nodes["_motivo_short"],
+                                df_placa_nodes["_txt_canc"],
+                                df_placa_nodes["_txt_vol"],
+                                df_placa_nodes["_txt_peso"],
+                                df_placa_nodes["_motivo_full"],
+                            ]),
+                            texttemplate=(
+                                "<b>%{label}</b><br>"
+                                "🧾 %{customdata[0]}<br>"
+                                "❌ %{customdata[1]}<br>"
+                                "📦 %{customdata[2]}<br>"
+                                "⚖️ %{customdata[3]}"
+                            ),
+                            textposition="middle center",
+                            hovertemplate=(
+                                "<b>%{label}</b><br>"
+                                "🧾 Motivo principal: %{customdata[4]}<br>"
+                                "❌ Cancelamentos: %{customdata[1]}<br>"
+                                "📦 Volumes afetados: %{customdata[2]}<br>"
+                                "⚖️ Peso afetado: %{customdata[3]}"
+                                "<extra></extra>"
+                            ),
+                            marker=dict(
+                                colors=[palette_cards[i % len(palette_cards)] for i in range(len(df_placa_nodes))],
+                                line=dict(color="rgba(8,15,30,.85)", width=3),
+                            ),
+                            tiling=dict(pad=4),
+                            branchvalues="total",
+                            sort=False,
+                            pathbar=dict(visible=False),
                         )
                     )
 
-                    html_cards.append(
-                        f"""
-                        <div class=\"placa-card-cancel\" style=\"--placa-color:{_esc_html(_color)};\">
-                            <div class=\"placa-card-head\">
-                                <div class=\"placa-card-title\">{_esc_html(_placa)}</div>
-                                <div class=\"placa-card-meta\">
-                                    <span class=\"placa-chip\">❌ {_esc_html(_stats.get('cancelamentos', '0'))}</span>
-                                    <span class=\"placa-chip\">📦 {_esc_html(_stats.get('volumes', '0'))}</span>
-                                    <span class=\"placa-chip\">⚖️ {_esc_html(_stats.get('peso', '0'))}</span>
-                                </div>
-                                <div class=\"placa-card-motivo\"><b>Motivo principal:</b> {_esc_html(_stats.get('motivo', 'SEM MOTIVO'))}</div>
-                            </div>
-                            <div class=\"placa-card-table-wrap\">{_table_html}</div>
-                        </div>
-                        """
+                    fig_tree.update_traces(
+                        textfont=dict(size=16, color="#f8fafc"),
+                        root_color="rgba(0,0,0,0)",
                     )
-
-                html_cards.append("</div>")
-                st.markdown(_html_block("".join(html_cards)), unsafe_allow_html=True)
-
+                    fig_tree.update_layout(
+                        height=780,
+                        margin=dict(t=8, b=8, l=8, r=8),
+                        uniformtext=dict(minsize=11, mode="hide"),
+                    )
+                    st.plotly_chart(fig_tree, use_container_width=True)
+                else:
+                    st.info("Nenhum cancelamento para montar a visão por placa no recorte atual.")
                 # -------------------------
                 # 🔎 Detalhar (tabela bruta)
                 # -------------------------
