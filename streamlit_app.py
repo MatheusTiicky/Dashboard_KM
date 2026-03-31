@@ -19053,7 +19053,7 @@ def main():
             """), unsafe_allow_html=True)
             _exp_title = f"🎯 Abrir seletor de motorista com {_occ_type_tbl}"
 
-        with st.expander(_exp_title, expanded=False):
+        with st.expander(_exp_title, expanded=True):
             # -------------------------------------------------
             # Base bruta para tabelas do controle e detalhamento por placa
             # -------------------------------------------------
