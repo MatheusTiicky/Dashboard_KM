@@ -2507,7 +2507,7 @@ def load_base_data(_fingerprint: tuple) -> pd.DataFrame:
     def _read_csvs_from_folder(_data_dir: str) -> pd.DataFrame:
         if not os.path.isdir(_data_dir):
             raise FileNotFoundError(f"Pasta 'Arquivos' não encontrada: {_data_dir}")
-    
+
         csv_files = sorted(
             os.path.join(_data_dir, f)
             for f in os.listdir(_data_dir)
@@ -2515,7 +2515,7 @@ def load_base_data(_fingerprint: tuple) -> pd.DataFrame:
         )
         if not csv_files:
             raise FileNotFoundError(f"Nenhum arquivo CSV encontrado em: {_data_dir}")
-    
+
         def _read_single_csv(path: str) -> pd.DataFrame:
             with open(path, "r", encoding="utf-8", errors="ignore") as f:
                 sample = f.read(4096)
@@ -2525,7 +2525,7 @@ def load_base_data(_fingerprint: tuple) -> pd.DataFrame:
                     sep = detected.delimiter
                 except Exception:
                     sep = ";"
-    
+
             try:
                 df = pd.read_csv(
                     path,
@@ -2544,27 +2544,27 @@ def load_base_data(_fingerprint: tuple) -> pd.DataFrame:
                     skiprows=1,
                     dtype=str
                 )
-    
+
             # remove a 1ª coluna auxiliar do exportador (0 / 1 / 2 ...)
             if len(df.columns) > 0:
                 primeira_coluna = str(df.columns[0]).strip().replace("\ufeff", "")
                 if primeira_coluna.isdigit() or primeira_coluna.lower().startswith("unnamed"):
                     df = df.iloc[:, 1:].copy()
-    
+
             # limpa nomes das colunas
             df.columns = [
                 str(c).strip().replace("\ufeff", "")
                 for c in df.columns
             ]
-    
+
             # remove linhas totalmente vazias
             df = df.dropna(how="all").reset_index(drop=True)
-    
+
             return df
-    
+
         dfs = [_read_single_csv(path) for path in csv_files]
         df_final = pd.concat(dfs, ignore_index=True)
-    
+
         def _norm_col(c):
             c = str(c).strip()
             c = "".join(
@@ -2573,9 +2573,9 @@ def load_base_data(_fingerprint: tuple) -> pd.DataFrame:
             )
             c = " ".join(c.split())
             return c
-    
+
         df_final.columns = [_norm_col(c) for c in df_final.columns]
-    
+
         col_map = {}
         for c in df_final.columns:
             key = c.lower()
@@ -2591,18 +2591,18 @@ def load_base_data(_fingerprint: tuple) -> pd.DataFrame:
                 "peso real (kgs)", "peso real em kilos", "peso real em quilogramas"
             ]:
                 col_map[c] = "Peso Real em Kg"
-    
+
         df_final = df_final.rename(columns=col_map)
-    
+
         for col in ["Data de Emissao", "Data do Cancelamento", "Login", "Placa de Coleta"]:
             if col not in df_final.columns:
                 df_final[col] = pd.NA
-    
+
         df_final["Login"] = df_final["Login"].astype(str).str.strip()
         df_final["Placa de Coleta"] = df_final["Placa de Coleta"].astype(str).str.strip()
         df_final["Data de Emissao"] = pd.to_datetime(df_final["Data de Emissao"], dayfirst=True, errors="coerce")
         df_final["Data do Cancelamento"] = pd.to_datetime(df_final["Data do Cancelamento"], dayfirst=True, errors="coerce")
-    
+
         return df_final
 
     def _coerce_object_cols_for_parquet(_df: pd.DataFrame) -> pd.DataFrame:
