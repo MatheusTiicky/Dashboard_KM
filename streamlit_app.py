@@ -18568,7 +18568,7 @@ def main():
                     st.markdown("#### 📦 Indicadores Operacionais")
                     o1, o2, o3 = st.columns(3)
                     with o1:
-                        _kpi_card_moderno("🧾", format_number(total_nr), "REGISTRO DE NdddR", "kpi-blue", badge_text=(f"🧾 Base: {format_number(total_emit)} emissões" if total_emit > 0 else None), force_compact=True, extra_class="kpi-clean kpi-occ", height_px=156)
+                        _kpi_card_moderno("🧾", format_number(total_nr), "REGISTRO DE NR", "kpi-blue", badge_text=(f"🧾 Base: {format_number(total_emit)} emissões" if total_emit > 0 else None), force_compact=True, extra_class="kpi-clean kpi-occ", height_px=156)
                     with o2:
                         _kpi_card_moderno("📦", vol_aff_txt, "VOLUMES AFETADOS (NR)", "kpi-teal", badge_text=(vol_badge if vol_badge else None), force_compact=True, extra_class="kpi-clean kpi-occ", height_px=156)
                     with o3:
