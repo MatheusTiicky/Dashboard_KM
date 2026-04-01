@@ -10569,112 +10569,23 @@ def main():
 
                         # Quando o cabeçalho está filtrando 1 usuário, garante coerência
                         _user_sel_det = _user_hdr_sel if _lock_to_hdr else _user_sel_det
-                        _user_list_all_mode = (_user_sel_det is None) or (_user_sel_det == "Todos")
 
-                        if _user_list_all_mode:
-                            _user_search = ""
-                            _user_sort_opt = st.session_state.get("emis_det_user_sort", "🧾 Mais emissões")
-                            _user_search_col, _user_sort_col = st.columns([1.7, 1.0], gap="small")
-                            with _user_search_col:
-                                _user_search = st.text_input(
-                                    "Buscar usuário",
-                                    key="emis_det_user_search",
-                                    placeholder="Nome ou placa...",
-                                    label_visibility="collapsed",
-                                )
-                            with _user_sort_col:
-                                _user_sort_opt = st.selectbox(
-                                    "Ordenar usuários por",
-                                    ["🧾 Mais emissões", "📦 Mais volumes", "⚖️ Maior peso"],
-                                    index=0,
-                                    key="emis_det_user_sort",
-                                    label_visibility="collapsed",
-                                )
-
-                            _show_df = _agg_u.copy()
-
-                            try:
-                                if (_vol_col_det is not None) and (_vol_col_det in _base_det.columns):
-                                    _tmp_vol_u = _base_det[[_user_col_det, _vol_col_det]].copy()
-                                    _tmp_vol_u["_VOL_NUM"] = _to_num_br(_tmp_vol_u[_vol_col_det]).fillna(0)
-                                    _vol_by_user_det = _tmp_vol_u.groupby(_user_col_det)["_VOL_NUM"].sum()
-                                    _show_df["_VOL_NUM"] = _show_df["Usuário"].map(_vol_by_user_det).fillna(0)
-                                else:
-                                    _show_df["_VOL_NUM"] = 0.0
-                            except Exception:
-                                _show_df["_VOL_NUM"] = 0.0
-
-                            try:
-                                if (_peso_col_det is not None) and (_peso_col_det in _base_det.columns):
-                                    _tmp_peso_u = _base_det[[_user_col_det, _peso_col_det]].copy()
-                                    _tmp_peso_u["_PESO_NUM"] = _to_num_br(_tmp_peso_u[_peso_col_det]).fillna(0)
-                                    _peso_by_user_det = _tmp_peso_u.groupby(_user_col_det)["_PESO_NUM"].sum()
-                                    _show_df["_PESO_NUM"] = _show_df["Usuário"].map(_peso_by_user_det).fillna(0)
-                                else:
-                                    _show_df["_PESO_NUM"] = 0.0
-                            except Exception:
-                                _show_df["_PESO_NUM"] = 0.0
-
-                            try:
-                                _show_df["_PLACA_FREQ"] = "SEM PLACA"
-                                if (_placa_col_det is not None) and (_placa_col_det in _base_det.columns):
-                                    _tmp_plate_u = _base_det[[_user_col_det, _placa_col_det]].copy()
-                                    _tmp_plate_u[_user_col_det] = _tmp_plate_u[_user_col_det].fillna("N/D").astype(str).str.strip()
-                                    _tmp_plate_u["_PLACA_RAW"] = _tmp_plate_u[_placa_col_det].fillna("").astype(str).str.strip().str.upper()
-                                    _tmp_plate_u["_PLACA_RAW"] = _tmp_plate_u["_PLACA_RAW"].replace({"": "SEM PLACA", "NAN": "SEM PLACA", "NONE": "SEM PLACA"})
-                                    _tmp_plate_u["_PLACA_NORM"] = _tmp_plate_u["_PLACA_RAW"].str.replace(r"[^A-Z0-9]", "", regex=True)
-                                    _tmp_plate_u["_PLACA_NORM"] = _tmp_plate_u["_PLACA_NORM"].replace({"": "SEM PLACA", "NAN": "SEM PLACA", "NONE": "SEM PLACA", "SEMPLACA": "SEM PLACA"})
-                                    _tmp_plate_u["_PLACA_GRP"] = _tmp_plate_u["_PLACA_NORM"].apply(
-                                        _edi_group_from_norm if (("tipo_emissao_bar" in locals()) and (tipo_emissao_bar == "EDI")) else _nonedi_group_from_norm
-                                    )
-                                    _tmp_plate_u["_PLACA_GRP"] = _tmp_plate_u["_PLACA_GRP"].fillna("SEM PLACA").astype(str).str.strip().replace({"": "SEM PLACA"})
-                                    _plate_freq_by_user = _tmp_plate_u.groupby(_user_col_det)["_PLACA_GRP"].agg(
-                                        lambda s: str(s.value_counts().index[0]).upper() if len(s.value_counts()) > 0 else "SEM PLACA"
-                                    )
-                                    _show_df["_PLACA_FREQ"] = _show_df["Usuário"].map(_plate_freq_by_user).fillna("SEM PLACA")
-                            except Exception:
-                                _show_df["_PLACA_FREQ"] = "SEM PLACA"
-
-                            try:
-                                if _user_search:
-                                    _q_user = _norm_text_search(_user_search)
-                                    _search_user = (
-                                        _show_df["Usuário"].astype(str) + " " +
-                                        _show_df["_PLACA_FREQ"].astype(str)
-                                    ).map(_norm_text_search)
-                                    _mask_user = pd.Series(True, index=_show_df.index)
-                                    for _tok_user in [t for t in _q_user.split() if t]:
-                                        _mask_user &= _search_user.str.contains(_tok_user, na=False)
-                                    _show_df = _show_df[_mask_user].copy()
-                            except Exception:
-                                pass
-
-                            try:
-                                if _user_sort_opt == "📦 Mais volumes":
-                                    _show_df = _show_df.sort_values(["_VOL_NUM", "Emissões"], ascending=[False, False])
-                                elif _user_sort_opt == "⚖️ Maior peso":
-                                    _show_df = _show_df.sort_values(["_PESO_NUM", "Emissões"], ascending=[False, False])
-                                else:
-                                    _show_df = _show_df.sort_values("Emissões", ascending=False)
-                            except Exception:
-                                _show_df = _show_df.sort_values("Emissões", ascending=False)
-
-                            st.markdown(
-                                _html_block(f"""
-                                <div style='font-size:.82rem; opacity:.74; margin:4px 0 10px 0;'>
-                                    Mostrando <b>{format_number(len(_show_df))}</b> usuários • exibindo Top 15
-                                </div>
-                                """),
-                                unsafe_allow_html=True,
-                            )
-                            _show_df = _show_df.head(15).copy()
+                        # Renderiza APENAS 1 usuário (performance)
+                        if (_user_sel_det is None) or (_user_sel_det == "Todos"):
+                            st.markdown("""
+                            <div class="user-focus-empty">
+                                <div class="user-focus-empty-title">👆 Selecione um usuário para abrir a análise individual</div>
+                                <div class="user-focus-empty-sub">Assim que você escolher um nome no seletor, esta área exibirá o painel completo com KPIs, participação, médias, placas e demais detalhes do emissor escolhido.</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            _show_df = _agg_u.iloc[0:0].copy()
                         else:
                             _show_df = _agg_u[_agg_u["Usuário"].astype(str).str.strip() == str(_user_sel_det).strip()].copy()
                             if _show_df.empty:
                                 st.markdown("""
                                 <div class="user-focus-empty">
                                     <div class="user-focus-empty-title">⚠️ Nenhum registro encontrado para este usuário</div>
-                                    <div class="user-focus-empty-sub">Os filtros atuais não retornaram emissões para este usuário. Ajuste o período ou os filtros do topo para continuar a análise.</div>
+                                    <div class="user-focus-empty-sub">Os filtros atuais não retornaram emissões para o usuário selecionado. Ajuste o período ou os filtros do topo para continuar a análise.</div>
                                 </div>
                                 """, unsafe_allow_html=True)
                                 _show_df = _agg_u.iloc[0:0].copy()
@@ -10742,14 +10653,10 @@ def main():
                             _pct = (_em / _total_em_det * 100) if _total_em_det > 0 else 0.0
                             _pct_txt = f"{_pct:.0f}%".replace(".", ",")
 
-                            _plate_freq_u = str(_row.get("_PLACA_FREQ", "")).strip().upper()
-                            if _user_list_all_mode:
-                                _exp_lbl = f"👤 {_u} • 🧾 {format_number(int(_em))} emissões • 🚚 {(_plate_freq_u if _plate_freq_u else 'SEM PLACA')}"
-                            else:
-                                _exp_lbl = f"👤 {_u} • 🧾 {format_number(int(_em))} Emissões • {_pct_txt}"
+                            _exp_lbl = f"👤 {_u} • 🧾 {format_number(int(_em))} Emissões • {_pct_txt}"
 
                             _safe_u = re.sub(r"[^A-Za-z0-9_]+", "_", _u)[:40]
-                            with st.expander(_exp_lbl, expanded=(not _user_list_all_mode)):
+                            with st.expander(_exp_lbl, expanded=True):
 
                                 # KPIs rápidos (sem plot pesado)
                                 _dias_u = int(_dias_by_user.get(_u, 0)) if _dias_by_user is not None else 0
