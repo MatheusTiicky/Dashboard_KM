@@ -15137,7 +15137,8 @@ def main():
                             "#F87171",  # vermelho
                         ]
 
-                        for i, ano in enumerate(anos_no_periodo):
+                        _series_taxa_por_ano = {}
+                        for ano in anos_no_periodo:
                             dfa = pd.DataFrame({"Mes_Num": _meses_num})
                             dfa["Mes"] = dfa["Mes_Num"].map(_mes_pt)
                             dfa["Emissões"] = dfa["Mes_Num"].map(lambda m: float(emis_m.get((ano, m), 0)))
@@ -15152,6 +15153,50 @@ def main():
                             dfa["_CANC_FMT"] = dfa["Cancelamentos"].apply(_fmt_int_pt)
                             dfa["_TAXA_FMT"] = dfa["Taxa %"].apply(_fmt_pct_comp)
                             dfa["_DELTA_FMT"] = (dfa["Taxa %"] - 0.75).apply(_fmt_pp_pt)
+                            _series_taxa_por_ano[ano] = dfa.copy()
+
+                        for i, ano in enumerate(anos_no_periodo):
+                            dfa = _series_taxa_por_ano[ano].copy()
+
+                            _textos_taxa = []
+                            _textpos_taxa = []
+                            for _, _row in dfa.iterrows():
+                                _mes_ref = int(_row["Mes_Num"])
+                                _y = float(_row["Taxa %"])
+                                _peers = []
+                                for _ano_peer in anos_no_periodo:
+                                    if _ano_peer == ano:
+                                        continue
+                                    _dfa_peer = _series_taxa_por_ano.get(_ano_peer)
+                                    if _dfa_peer is None or _dfa_peer.empty:
+                                        continue
+                                    _match_peer = _dfa_peer.loc[_dfa_peer["Mes_Num"] == _mes_ref, "Taxa %"]
+                                    if not _match_peer.empty:
+                                        _peers.append(float(_match_peer.iloc[0]))
+
+                                _tem_mesmo_valor = any(abs(_y - _p) < 1e-9 for _p in _peers)
+                                if _tem_mesmo_valor and i > 0:
+                                    _textos_taxa.append("")
+                                    _textpos_taxa.append("top center")
+                                    continue
+
+                                _textos_taxa.append(_fmt_pct_comp(_y))
+
+                                if not _peers:
+                                    _textpos_taxa.append("top center")
+                                    continue
+
+                                _diff_min = min(abs(_y - _p) for _p in _peers)
+                                if _diff_min <= 0.08:
+                                    if i % 2 == 0:
+                                        _textpos_taxa.append("top center")
+                                    else:
+                                        _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
+                                else:
+                                    if _y >= max(_peers):
+                                        _textpos_taxa.append("top center")
+                                    else:
+                                        _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
 
                             _cd_taxa = np.stack(
                                 [
@@ -15173,8 +15218,8 @@ def main():
                                     mode="lines+markers+text",
                                     line=dict(color=_c, width=3, shape="spline", smoothing=1.15),
                                     marker=dict(size=8, color=_c, line=dict(width=1, color="rgba(255,255,255,.18)")),
-                                    text=[_fmt_pct_comp(v) for v in dfa["Taxa %"]],
-                                    textposition="top center",
+                                    text=_textos_taxa,
+                                    textposition=_textpos_taxa,
                                     textfont=dict(size=13, color="rgba(241,245,249,.95)", family="Inter"),
                                     cliponaxis=False,
                                     customdata=_cd_taxa,
