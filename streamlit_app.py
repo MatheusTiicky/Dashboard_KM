@@ -15081,95 +15081,107 @@ def main():
                 # Intervalos longos: comparação por MÊS (Jan..Dez) com 1 linha por ANO
                 # =========================================
                 else:
-                    anos_no_periodo = sorted(emissoes_periodo["DATA_EMISSÃO"].dropna().dt.year.unique())
+                    _e = _apply_common_filters_em(emissoes_periodo)
+                    _e["__DT__"] = pd.to_datetime(_e.get("DATA_EMISSÃO"), errors="coerce")
+                    _e = _e[_e["__DT__"].notna()]
+                    if "CTRC_EMITIDO" in _e.columns:
+                        _e["__QTD__"] = pd.to_numeric(_e["CTRC_EMITIDO"], errors="coerce").fillna(0)
+                    else:
+                        _e["__QTD__"] = 1
+                    _e["__ANO__"] = _e["__DT__"].dt.year
+                    _e["__MES_NUM__"] = _e["__DT__"].dt.month
+                    emis_m = _e.groupby(["__ANO__", "__MES_NUM__"])["__QTD__"].sum() if not _e.empty else pd.Series(dtype=float)
+
+                    _c = _apply_common_filters_canc(cancelamentos_periodo)
+                    if _canc_dt_col:
+                        _c["__DT__"] = pd.to_datetime(_c.get(_canc_dt_col), errors="coerce")
+                        _c = _c[_c["__DT__"].notna()]
+                        _c["__ANO__"] = _c["__DT__"].dt.year
+                        _c["__MES_NUM__"] = _c["__DT__"].dt.month
+                        canc_m = _c.groupby(["__ANO__", "__MES_NUM__"]).size() if not _c.empty else pd.Series(dtype=float)
+                    else:
+                        canc_m = pd.Series(dtype=float)
+
+                    anos_no_periodo = sorted({int(a) for a, _ in list(emis_m.index) + list(canc_m.index)})
+
                     if len(anos_no_periodo) == 0:
                         st.info("Dados insuficientes para gerar o gráfico de evolução.")
                     else:
-                        meses_num = list(range(1, 13))
-                        meses_lbl = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+                        _mes_pt = {1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
+                                   7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"}
+                        _meses_num = list(range(1, 13))
 
                         fig_evolucao_comparativa = go.Figure()
 
-                        # Paleta premium
-                        cores_anos = ["#60A5FA", "#A78BFA", "#34D399", "#FBBF24", "#F87171", "#22D3EE"]
+                        def _fmt_pct_comp(v):
+                            try:
+                                return (f"{float(v):.2f}%").replace(".", ",")
+                            except Exception:
+                                return str(v)
 
-                        for i, ano in enumerate(anos_no_periodo):
-                            emissoes_ano = emissoes_periodo[emissoes_periodo["DATA_EMISSÃO"].dt.year == ano]
-
-                            if _canc_dt_col:
-                                cancelamentos_ano = cancelamentos_periodo[cancelamentos_periodo[_canc_dt_col].dt.year == ano]
-                                cancelamentos_mensais = cancelamentos_ano.groupby(cancelamentos_ano[_canc_dt_col].dt.month).size().reindex(meses_num)
-                            else:
-                                cancelamentos_mensais = pd.Series(index=meses_num, dtype=float)
-
-                            # Séries mensais (reindexa para Jan..Dez, mas NÃO zera meses sem dados)
-                            if "CTRC_EMITIDO" in emissoes_ano.columns:
-                                emissoes_mensais = emissoes_ano.groupby(emissoes_ano["DATA_EMISSÃO"].dt.month)["CTRC_EMITIDO"].sum().reindex(meses_num)
-                            else:
-                                emissoes_mensais = emissoes_ano.groupby(emissoes_ano["DATA_EMISSÃO"].dt.month).size().reindex(meses_num)
-
-                            df_evo = pd.DataFrame({
-                                "Mes_Num": meses_num,
-                                "Mes": meses_lbl,
-                                "Emissoes": emissoes_mensais.values,
-                                "Cancelamentos": cancelamentos_mensais.values,
-                            })
-
-                            # Taxa (%) — mantém NaN quando não há emissões no mês (evita linha em 0%)
-                            df_evo["Taxa"] = np.where(
-                                pd.to_numeric(df_evo["Emissoes"], errors="coerce") > 0,
-                                (pd.to_numeric(df_evo["Cancelamentos"], errors="coerce") / pd.to_numeric(df_evo["Emissoes"], errors="coerce") * 100),
-                                np.nan
-                            )
-
-                            # Labels mais limpos: mostra somente a % no gráfico.
-                            # A quantidade de cancelamentos fica no hover para evitar poluição visual.
-                            txt_pct = [(_fmt_pct_pt(_t) if pd.notna(_t) else "") for _t in df_evo["Taxa"]]
-
-                            cd = np.stack([
-                                df_evo["Mes"].astype(str).values,
-                                [(_fmt_int_pt(v) if pd.notna(v) else "0") for v in df_evo["Emissoes"]],
-                                [(_fmt_int_pt(v) if pd.notna(v) else "0") for v in df_evo["Cancelamentos"]],
-                                [(_fmt_pct_pt(v) if pd.notna(v) else "—") for v in df_evo["Taxa"]],
-                            ], axis=-1)
-
-                            _pct_positions = ["top center", "bottom center", "top left", "bottom right", "top right", "bottom left"]
-                            _pos_pct = _pct_positions[i % len(_pct_positions)]
-
-                            fig_evolucao_comparativa.add_trace(go.Scatter(
-                                x=df_evo["Mes"],
-                                y=df_evo["Taxa"],
-                                name=str(ano),
-                                mode="lines+markers+text",
-                                connectgaps=False,
-                                cliponaxis=False,
-                                line=dict(color=cores_anos[i % len(cores_anos)], width=3, shape="linear"),
-                                marker=dict(size=8),
-                                text=txt_pct,
-                                textposition=_pos_pct,
-                                textfont=dict(size=13, color="rgba(241,245,249,.98)", family="Inter"),
-                                customdata=cd,
-                                hovertemplate=(
-                                    "<b>%{customdata[0]} / %{fullData.name}</b><br>"
-                                    "📈 <b>Taxa</b>: %{customdata[3]}<br>"
-                                    "🟥 <b>Cancelamentos</b>: %{customdata[2]}<br>"
-                                    "🟦 <b>Emissões</b>: %{customdata[1]}"
-                                    "<extra></extra>"
-                                )
-                            ))
-
-                        # Linha de meta (0,75%)
-                        fig_evolucao_comparativa.add_hline(
-                            y=0.75,
-                            line_dash="dot",
-                            line_color="#FBBF24",
-                            line_width=2,
-                            annotation_text="Meta 0,75%",
-                            annotation_position="top left",
-                            annotation_font_color="#FBBF24",
+                        _hover_tpl_taxa = (
+                            "<b>%{customdata[0]}</b><br>"
+                            "📈 <b>Taxa</b>: %{customdata[1]}<br>"
+                            "🟦 <b>Emissões</b>: %{customdata[2]}<br>"
+                            "🟥 <b>Cancelamentos</b>: %{customdata[3]}<br>"
+                            "📊 <b>Diferença vs meta</b>: %{customdata[4]}"
+                            "<extra></extra>"
                         )
 
-                        # Layout premium
+                        _pal = [
+                            "#008CFF",  # azul
+                            "#FF6200",  # laranja
+                            "#A78BFA",  # lilás
+                            "#22C55E",  # verde
+                            "#FBBF24",  # amarelo
+                            "#F87171",  # vermelho
+                        ]
+
+                        for i, ano in enumerate(anos_no_periodo):
+                            dfa = pd.DataFrame({"Mes_Num": _meses_num})
+                            dfa["Mes"] = dfa["Mes_Num"].map(_mes_pt)
+                            dfa["Emissões"] = dfa["Mes_Num"].map(lambda m: float(emis_m.get((ano, m), 0)))
+                            dfa["Cancelamentos"] = dfa["Mes_Num"].map(lambda m: float(canc_m.get((ano, m), 0)))
+                            dfa["Taxa %"] = np.where(
+                                dfa["Emissões"] > 0,
+                                (dfa["Cancelamentos"] / dfa["Emissões"]) * 100.0,
+                                0.0,
+                            )
+                            dfa["_LABEL_MY"] = dfa["Mes"] + f"/{str(ano)[-2:]}"
+                            dfa["_EMIS_FMT"] = dfa["Emissões"].apply(_fmt_int_pt)
+                            dfa["_CANC_FMT"] = dfa["Cancelamentos"].apply(_fmt_int_pt)
+                            dfa["_TAXA_FMT"] = dfa["Taxa %"].apply(_fmt_pct_comp)
+                            dfa["_DELTA_FMT"] = (dfa["Taxa %"] - 0.75).apply(_fmt_pp_pt)
+
+                            _cd_taxa = np.stack(
+                                [
+                                    dfa["_LABEL_MY"],
+                                    dfa["_TAXA_FMT"],
+                                    dfa["_EMIS_FMT"],
+                                    dfa["_CANC_FMT"],
+                                    dfa["_DELTA_FMT"],
+                                ],
+                                axis=-1,
+                            )
+
+                            _c = _pal[i % len(_pal)]
+                            fig_evolucao_comparativa.add_trace(
+                                go.Scatter(
+                                    x=dfa["Mes_Num"],
+                                    y=dfa["Taxa %"],
+                                    name=str(ano),
+                                    mode="lines+markers+text",
+                                    line=dict(color=_c, width=3, shape="spline", smoothing=1.15),
+                                    marker=dict(size=8, color=_c, line=dict(width=1, color="rgba(255,255,255,.18)")),
+                                    text=[_fmt_pct_comp(v) for v in dfa["Taxa %"]],
+                                    textposition="top center",
+                                    textfont=dict(size=13, color="rgba(241,245,249,.95)", family="Inter"),
+                                    cliponaxis=False,
+                                    customdata=_cd_taxa,
+                                    hovertemplate=_hover_tpl_taxa,
+                                )
+                            )
+
                         fig_evolucao_comparativa.update_layout(
                             template="plotly_dark",
                             height=520,
@@ -15182,40 +15194,55 @@ def main():
                                 orientation="h",
                                 yanchor="bottom",
                                 y=1.02,
-                                xanchor="left",
-                                x=0,
+                                xanchor="right",
+                                x=1,
                             ),
+                        )
+
+                        _ymax = 0.0
+                        try:
+                            _ymax = max(
+                                [float(pd.to_numeric(tr.y, errors="coerce").max()) for tr in fig_evolucao_comparativa.data if len(tr.y) > 0] or [0.0]
+                            )
+                        except Exception:
+                            _ymax = 0.0
+                        _ymax = max(_ymax, 0.75)
+
+                        fig_evolucao_comparativa.update_yaxes(
+                            title_text="Taxa (%)",
+                            range=[0, _ymax * 1.25],
+                            ticksuffix="%",
+                            showgrid=True,
+                            gridcolor="rgba(148,163,184,.10)",
+                            zeroline=False,
+                            showspikes=False,
+                        )
+
+                        fig_evolucao_comparativa.add_shape(
+                            type="line",
+                            x0=0.5, x1=12.5, xref="x",
+                            y0=0.75, y1=0.75, yref="y",
+                            line=dict(color="#F8C10C", width=2, dash="dot"),
+                        )
+
+                        fig_evolucao_comparativa.add_annotation(
+                            x=12.45, y=0.75, xref="x", yref="y",
+                            text="Meta 0,75%",
+                            showarrow=False,
+                            xanchor="right",
+                            yanchor="bottom",
+                            yshift=6,
+                            font=dict(color="#F8C10C", size=12),
                         )
 
                         fig_evolucao_comparativa.update_xaxes(
                             title_text="Mês",
+                            tickmode="array",
+                            tickvals=_meses_num,
+                            ticktext=[_mes_pt[m] for m in _meses_num],
+                            range=[0.5, 12.5],
                             showgrid=True,
                             gridcolor="rgba(148,163,184,.12)",
-                            zeroline=False,
-                            showspikes=False,
-                        )
-                        # Dá folga no eixo Y para não cortar os rótulos superiores/inferiores
-                        try:
-                            _taxa_vals = pd.to_numeric(pd.concat([
-                                pd.to_numeric(t["y"], errors="coerce") if hasattr(t, "__getitem__") and "y" in t else pd.Series(dtype=float)
-                                for t in fig_evolucao_comparativa.data
-                            ]), errors="coerce")
-                            _taxa_vals = _taxa_vals[np.isfinite(_taxa_vals)]
-                            _taxa_max = float(_taxa_vals.max()) if len(_taxa_vals) else 0.0
-                        except Exception:
-                            _taxa_max = 0.0
-
-                        _y_top = max(1.25, _taxa_max + 0.60)
-                        _y_bottom = 0.0
-
-                        fig_evolucao_comparativa.update_yaxes(
-                            title_text="Taxa (%)",
-                            ticksuffix="%",
-                            dtick=0.5,
-                            tickformat=".1f",
-                            range=[_y_bottom, _y_top],
-                            showgrid=True,
-                            gridcolor="rgba(148,163,184,.10)",
                             zeroline=False,
                             showspikes=False,
                         )
