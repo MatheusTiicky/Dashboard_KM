@@ -39,6 +39,103 @@ def _esc_html(v) -> str:
     return html.escape("" if v is None else str(v), quote=True)
 
 
+def _render_df_with_ctrc_links(
+    df: pd.DataFrame,
+    ctrc_col: str = "Serie/Numero CTRC",
+    link_url: str = "https://sistema.ssw.inf.br/bin/ssw0053",
+    max_rows: int | None = None,
+):
+    """Renderiza uma tabela HTML com a coluna de CTRC clicável.
+    O clique abre o SSW em nova aba, preservando o texto original do CTRC na célula.
+    """
+    if df is None or df.empty:
+        st.dataframe(pd.DataFrame() if df is None else df, use_container_width=True, hide_index=True)
+        return
+
+    try:
+        df_view = df.head(max_rows).copy() if max_rows else df.copy()
+    except Exception:
+        df_view = df.copy()
+
+    df_html = df_view.copy()
+
+    for col in df_html.columns:
+        if col == ctrc_col:
+            continue
+        df_html[col] = df_html[col].apply(lambda v: _esc_html("" if pd.isna(v) else str(v)))
+
+    if ctrc_col in df_view.columns:
+        def _ctrc_to_link(v):
+            try:
+                if pd.isna(v):
+                    return "—"
+            except Exception:
+                pass
+            txt = str(v).strip()
+            if not txt or txt.upper() in {"NAN", "NONE"}:
+                return "—"
+            return (
+                f'<a href="{_esc_html(link_url)}" target="_blank" rel="noopener noreferrer" '
+                f'class="ctrc-link-cell">{_esc_html(txt)}</a>'
+            )
+
+        df_html[ctrc_col] = df_view[ctrc_col].apply(_ctrc_to_link)
+
+    st.caption("Clique no CTRC para abrir o SSW.")
+    st.markdown(
+        _html_block(
+            f"""
+            <style>
+              .ctrc-link-table-wrap {{
+                width: 100%;
+                overflow-x: auto;
+                border: 1px solid rgba(148,163,184,0.16);
+                border-radius: 14px;
+                background: rgba(2, 6, 23, 0.55);
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+              }}
+              table.ctrc-link-table {{
+                width: 100%;
+                min-width: 980px;
+                border-collapse: collapse;
+                font-size: 13px;
+              }}
+              table.ctrc-link-table thead th {{
+                padding: 10px 12px;
+                text-align: left;
+                white-space: nowrap;
+                background: rgba(255,255,255,0.04);
+                color: #94a3b8;
+                border-bottom: 1px solid rgba(148,163,184,0.18);
+              }}
+              table.ctrc-link-table tbody td {{
+                padding: 10px 12px;
+                white-space: nowrap;
+                color: #e5e7eb;
+                border-bottom: 1px solid rgba(148,163,184,0.10);
+              }}
+              table.ctrc-link-table tbody tr:hover td {{
+                background: rgba(59,130,246,0.06);
+              }}
+              .ctrc-link-cell {{
+                color: #93c5fd !important;
+                font-weight: 700;
+                text-decoration: none;
+              }}
+              .ctrc-link-cell:hover {{
+                color: #bfdbfe !important;
+                text-decoration: underline;
+              }}
+            </style>
+            <div class="ctrc-link-table-wrap">
+              {df_html.to_html(index=False, escape=False, classes="ctrc-link-table", border=0)}
+            </div>
+            """
+        ),
+        unsafe_allow_html=True,
+    )
+
+
 
 # =============================================================
 # Helpers (coluna por aproximação / normalização) - usados no Ranking
@@ -12611,7 +12708,7 @@ def main():
                                                         if len(df_out) > max_rows:
                                                             st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o CSV para ver tudo.")
 
-                                                        st.dataframe(df_out.head(max_rows), use_container_width=True, hide_index=True)
+                                                        _render_df_with_ctrc_links(df_out, max_rows=max_rows)
 
                                                         _safe_pl = re.sub(r"[^A-Z0-9_]+", "_", placa_v) if placa_v else "SEM_PLACA"
                                                         st.download_button(
@@ -20643,7 +20740,7 @@ def main():
                                         if len(df_out) > max_rows:
                                             st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o CSV para ver tudo.")
 
-                                        st.dataframe(df_out.head(max_rows), use_container_width=True, hide_index=True)
+                                        _render_df_with_ctrc_links(df_out, max_rows=max_rows)
 
                                         _safe_mot = re.sub(r"[^A-Z0-9_]+", "_", mot_v) if mot_v else "SEM_MOTORISTA"
                                         st.download_button(
