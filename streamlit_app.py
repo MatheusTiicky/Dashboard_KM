@@ -377,6 +377,35 @@ def _fmt_pp_pt(v):
     except Exception:
         return str(v)
 
+def _get_cancel_date_col(df: pd.DataFrame, include_emission_fallback: bool = True):
+    """Retorna a coluna de data mais adequada para cancelamentos.
+
+    Prioridade padrão do dashboard:
+    1) DATA_CANCELADO
+    2) DATA_CANCEL
+    3) DATA_EMISSÃO / DATA_EMISSAO (fallback)
+    """
+    if df is None or not isinstance(df, pd.DataFrame):
+        return None
+
+    candidates = ["DATA_CANCELADO", "DATA_CANCEL"]
+    if include_emission_fallback:
+        candidates.extend(["DATA_EMISSÃO", "DATA_EMISSAO"])
+
+    for col in candidates:
+        if col in df.columns:
+            return col
+    return None
+
+def _get_cancel_month_col(df: pd.DataFrame):
+    """Retorna a coluna mensal principal para cancelamentos."""
+    if df is None or not isinstance(df, pd.DataFrame):
+        return None
+    for col in ["MÊS_CANCELAMENTO", "MÊS"]:
+        if col in df.columns:
+            return col
+    return None
+
 # =============================================================
 # Helpers — EDI (placas base + correlacionadas)
 # Regras (base):
@@ -3016,7 +3045,8 @@ def load_data(_fingerprint: tuple):
             )
 
             df_canc["USUARIO"] = df_canc["USUARIO"].map(normalizar_usuario)
-            # ✅ Datas (mantém DATA_CANCELADO para análises, mas filtros seguem DATA_EMISSÃO)
+
+            # ✅ Datas — padroniza o dashboard pelo mês/data do CANCELAMENTO
             if "DATA_EMISSÃO" in df_canc.columns:
                 df_canc["DATA_EMISSÃO"] = pd.to_datetime(df_canc["DATA_EMISSÃO"], dayfirst=True, errors="coerce")
             else:
@@ -3024,18 +3054,22 @@ def load_data(_fingerprint: tuple):
 
             if "DATA_CANCELADO" in df_canc.columns:
                 df_canc["DATA_CANCELADO"] = pd.to_datetime(df_canc["DATA_CANCELADO"], dayfirst=True, errors="coerce")
-
-            # 🔹 Mantém apenas registros com data de emissão válida (para respeitar o "Período de Emissão")
-            df_canc.dropna(subset=["DATA_EMISSÃO"], inplace=True)
-
-            # 🔹 Mês principal (usado nos filtros do dashboard) = mês da EMISSÃO
-            df_canc["MÊS"] = df_canc["DATA_EMISSÃO"].dt.month.apply(lambda x: meses_pt[int(x) - 1] if pd.notna(x) else pd.NA)
-
-            # 🔹 Mês do cancelamento (para análises específicas por data de cancelamento, se precisar)
-            if "DATA_CANCELADO" in df_canc.columns:
-                df_canc["MÊS_CANCELAMENTO"] = df_canc["DATA_CANCELADO"].dt.month.apply(lambda x: meses_pt[int(x) - 1] if pd.notna(x) else pd.NA)
             else:
-                df_canc["MÊS_CANCELAMENTO"] = pd.NA
+                df_canc["DATA_CANCELADO"] = pd.NaT
+
+            # 🔹 Mantém apenas registros com data de cancelamento válida
+            df_canc.dropna(subset=["DATA_CANCELADO"], inplace=True)
+
+            # 🔹 Mês principal do dashboard = mês do CANCELAMENTO
+            df_canc["MÊS"] = df_canc["DATA_CANCELADO"].dt.month.apply(lambda x: meses_pt[int(x) - 1] if pd.notna(x) else pd.NA)
+
+            # 🔹 Preserva também o mês de emissão para análises específicas/coorte
+            if "DATA_EMISSÃO" in df_canc.columns:
+                df_canc["MÊS_EMISSÃO"] = df_canc["DATA_EMISSÃO"].dt.month.apply(lambda x: meses_pt[int(x) - 1] if pd.notna(x) else pd.NA)
+            else:
+                df_canc["MÊS_EMISSÃO"] = pd.NA
+
+            df_canc["MÊS_CANCELAMENTO"] = df_canc["MÊS"]
             cancelamentos_df = df_canc
 
         return emissoes_df, cancelamentos_df, df_emiss_proc
@@ -3566,21 +3600,21 @@ def main():
             (df_filtrado["DATA_EMISSÃO"].dt.date >= start_date) &
             (df_filtrado["DATA_EMISSÃO"].dt.date <= end_date)
         ]
-        # ✅ Cancelamentos seguem o PERÍODO DE EMISSÃO (para não "puxar" cancelamentos de outro mês)
-        if "DATA_EMISSÃO" in cancelamentos_filtrado.columns:
+
+        # ✅ Cancelamentos seguem o PERÍODO DE CANCELAMENTO
+        _cancel_date_col = _get_cancel_date_col(cancelamentos_filtrado)
+        if _cancel_date_col:
             cancelamentos_filtrado = cancelamentos_filtrado[
-                (cancelamentos_filtrado["DATA_EMISSÃO"].dt.date >= start_date) &
-                (cancelamentos_filtrado["DATA_EMISSÃO"].dt.date <= end_date)
+                (cancelamentos_filtrado[_cancel_date_col].dt.date >= start_date) &
+                (cancelamentos_filtrado[_cancel_date_col].dt.date <= end_date)
             ]
-        else:
-            # fallback (não esperado): usa a data do cancelamento
-            cancelamentos_filtrado = cancelamentos_filtrado[
-                (cancelamentos_filtrado["DATA_CANCELADO"].dt.date >= start_date) &
-                (cancelamentos_filtrado["DATA_CANCELADO"].dt.date <= end_date)
-            ]# Filtro de mês
+
+    # Filtro de mês
     if mes_selecionado != 'Todos':
         df_filtrado = df_filtrado[df_filtrado['MÊS'] == mes_selecionado]
-        cancelamentos_filtrado = cancelamentos_filtrado[cancelamentos_filtrado['MÊS'] == mes_selecionado]
+        _cancel_month_col = _get_cancel_month_col(cancelamentos_filtrado)
+        if _cancel_month_col:
+            cancelamentos_filtrado = cancelamentos_filtrado[cancelamentos_filtrado[_cancel_month_col] == mes_selecionado]
     
     # Filtro de expedição
     if expedicao_selecionada != 'Todas':
@@ -3639,16 +3673,16 @@ def main():
         canc_produtividade = cancelamentos_tab1.copy()
         
         # Aplicar apenas filtros de data e usuário para produtividade
+        _canc_prod_date_col = _get_cancel_date_col(canc_produtividade)
         if start_date and end_date:
             df_produtividade = df_produtividade[
                 (df_produtividade["DATA_EMISSÃO"].dt.date >= start_date) &
                 (df_produtividade["DATA_EMISSÃO"].dt.date <= end_date)
             ]
-            # Mantém cancelamentos alinhados ao período de EMISSÃO
-            if "DATA_EMISSÃO" in canc_produtividade.columns:
+            if _canc_prod_date_col:
                 canc_produtividade = canc_produtividade[
-                    (canc_produtividade["DATA_EMISSÃO"].dt.date >= start_date) &
-                    (canc_produtividade["DATA_EMISSÃO"].dt.date <= end_date)
+                    (canc_produtividade[_canc_prod_date_col].dt.date >= start_date) &
+                    (canc_produtividade[_canc_prod_date_col].dt.date <= end_date)
                 ]
         
         if mes_selecionado != 'Todos':
@@ -3671,8 +3705,8 @@ def main():
                 # 1. Filtra o dataframe para incluir APENAS dias de segunda a sexta (weekday < 5)
                 df_exp_noite_dias_uteis = df_produtividade[df_produtividade['DATA_EMISSÃO'].dt.weekday < 5]
                 canc_exp_noite_dias_uteis = (
-                    canc_produtividade[canc_produtividade['DATA_EMISSÃO'].dt.weekday < 5]
-                    if 'DATA_EMISSÃO' in canc_produtividade.columns else canc_produtividade
+                    canc_produtividade[canc_produtividade[_canc_prod_date_col].dt.weekday < 5]
+                    if (_canc_prod_date_col and _canc_prod_date_col in canc_produtividade.columns) else canc_produtividade
                 )
                 
                 # 2. Total REAL de emissões SOMENTE desses dias
@@ -3697,8 +3731,8 @@ def main():
             # Média semanal (REAL)
             df_semanal_em = df_produtividade[df_produtividade['DATA_EMISSÃO'].dt.weekday < 5] if expedicao_selecionada == 'NOITE' else df_produtividade
             df_semanal_c = (
-                canc_produtividade[canc_produtividade['DATA_EMISSÃO'].dt.weekday < 5]
-                if (expedicao_selecionada == 'NOITE' and 'DATA_EMISSÃO' in canc_produtividade.columns) else canc_produtividade
+                canc_produtividade[canc_produtividade[_canc_prod_date_col].dt.weekday < 5]
+                if (expedicao_selecionada == 'NOITE' and _canc_prod_date_col and _canc_prod_date_col in canc_produtividade.columns) else canc_produtividade
             )
 
             if not df_semanal_em.empty:
@@ -3709,10 +3743,10 @@ def main():
             else:
                 em_semanais = pd.Series(dtype=float)
 
-            if (df_semanal_c is not None) and (not df_semanal_c.empty) and ('DATA_EMISSÃO' in df_semanal_c.columns):
+            if (df_semanal_c is not None) and (not df_semanal_c.empty) and _canc_prod_date_col and (_canc_prod_date_col in df_semanal_c.columns):
                 df_semanal_c = df_semanal_c.copy()
-                df_semanal_c['semana'] = df_semanal_c['DATA_EMISSÃO'].dt.isocalendar().week
-                df_semanal_c['ano'] = df_semanal_c['DATA_EMISSÃO'].dt.year
+                df_semanal_c['semana'] = df_semanal_c[_canc_prod_date_col].dt.isocalendar().week
+                df_semanal_c['ano'] = df_semanal_c[_canc_prod_date_col].dt.year
                 c_semanais = df_semanal_c.groupby(['ano', 'semana']).size()
             else:
                 c_semanais = pd.Series(dtype=float)
@@ -3727,8 +3761,8 @@ def main():
             # Média mensal (REAL)
             df_mensal_em = df_produtividade[df_produtividade['DATA_EMISSÃO'].dt.weekday < 5] if expedicao_selecionada == 'NOITE' else df_produtividade
             df_mensal_c = (
-                canc_produtividade[canc_produtividade['DATA_EMISSÃO'].dt.weekday < 5]
-                if (expedicao_selecionada == 'NOITE' and 'DATA_EMISSÃO' in canc_produtividade.columns) else canc_produtividade
+                canc_produtividade[canc_produtividade[_canc_prod_date_col].dt.weekday < 5]
+                if (expedicao_selecionada == 'NOITE' and _canc_prod_date_col and _canc_prod_date_col in canc_produtividade.columns) else canc_produtividade
             )
 
             if mes_selecionado != 'Todos':
@@ -3741,8 +3775,8 @@ def main():
                 else:
                     em_mensais = pd.Series(dtype=float)
 
-                if (df_mensal_c is not None) and (not df_mensal_c.empty) and ('DATA_EMISSÃO' in df_mensal_c.columns):
-                    c_mensais = df_mensal_c.groupby(df_mensal_c['DATA_EMISSÃO'].dt.to_period('M')).size()
+                if (df_mensal_c is not None) and (not df_mensal_c.empty) and _canc_prod_date_col and (_canc_prod_date_col in df_mensal_c.columns):
+                    c_mensais = df_mensal_c.groupby(df_mensal_c[_canc_prod_date_col].dt.to_period('M')).size()
                 else:
                     c_mensais = pd.Series(dtype=float)
 
@@ -4896,7 +4930,7 @@ def main():
 
         # Cancelamentos por dia
         if isinstance(cancelamentos_tab1, pd.DataFrame) and (not cancelamentos_tab1.empty):
-            date_c = "DATA_EMISSÃO" if "DATA_EMISSÃO" in cancelamentos_tab1.columns else ("DATA_CANCELADO" if "DATA_CANCELADO" in cancelamentos_tab1.columns else None)
+            date_c = _get_cancel_date_col(cancelamentos_tab1)
             if date_c:
                 tmp_c = cancelamentos_tab1.copy()
                 tmp_c[date_c] = pd.to_datetime(tmp_c[date_c], errors="coerce")
@@ -4976,13 +5010,9 @@ def main():
         if "DATA_EMISSÃO" in _base_e.columns:
             _base_e["DATA_EMISSÃO"] = pd.to_datetime(_base_e["DATA_EMISSÃO"], errors="coerce")
 
-        c_date_col = None
-        if "DATA_EMISSÃO" in _base_c.columns:
-            _base_c["DATA_EMISSÃO"] = pd.to_datetime(_base_c["DATA_EMISSÃO"], errors="coerce", dayfirst=True)
-            c_date_col = "DATA_EMISSÃO"
-        elif "DATA_EMISSAO" in _base_c.columns:
-            _base_c["DATA_EMISSAO"] = pd.to_datetime(_base_c["DATA_EMISSAO"], errors="coerce", dayfirst=True)
-            c_date_col = "DATA_EMISSAO"
+        c_date_col = _get_cancel_date_col(_base_c)
+        if c_date_col and (c_date_col in _base_c.columns):
+            _base_c[c_date_col] = pd.to_datetime(_base_c[c_date_col], errors="coerce", dayfirst=True)
 
         if day_mode and (cur_day is not None) and (prev_day is not None):
             e_cur = _base_e[_base_e["DATA_EMISSÃO"].dt.date == cur_day] if (not _base_e.empty and "DATA_EMISSÃO" in _base_e.columns) else pd.DataFrame()
@@ -14402,17 +14432,27 @@ def main():
         if not cancelamentos_tab4.empty:
             total_cancelamentos_periodo = len(cancelamentos_tab4)
             
+            _dt_cancel_tab4 = _get_cancel_date_col(cancelamentos_tab4)
+
             # Média Diária de Cancelamentos
-            cancelamentos_diarios = cancelamentos_tab4.groupby(cancelamentos_tab4["DATA_EMISSÃO"].dt.date).size() if "DATA_EMISSÃO" in cancelamentos_tab4.columns else cancelamentos_tab4.groupby(cancelamentos_tab4["DATA_CANCELADO"].dt.date).size()
-            media_diaria_cancelamentos = cancelamentos_diarios.mean()
+            if _dt_cancel_tab4 and (_dt_cancel_tab4 in cancelamentos_tab4.columns):
+                cancelamentos_diarios = cancelamentos_tab4.groupby(cancelamentos_tab4[_dt_cancel_tab4].dt.date).size()
+                media_diaria_cancelamentos = cancelamentos_diarios.mean()
 
-            # Média Semanal de Cancelamentos
-            cancelamentos_semanais = cancelamentos_tab4.groupby(cancelamentos_tab4["DATA_EMISSÃO"].dt.to_period("W")).size() if "DATA_EMISSÃO" in cancelamentos_tab4.columns else cancelamentos_tab4.groupby(cancelamentos_tab4["DATA_CANCELADO"].dt.to_period("W")).size()
-            media_semanal_cancelamentos = cancelamentos_semanais.mean()
+                # Média Semanal de Cancelamentos
+                cancelamentos_semanais = cancelamentos_tab4.groupby(cancelamentos_tab4[_dt_cancel_tab4].dt.to_period("W")).size()
+                media_semanal_cancelamentos = cancelamentos_semanais.mean()
 
-            # Média Mensal de Cancelamentos
-            cancelamentos_mensais = cancelamentos_tab4.groupby(cancelamentos_tab4["DATA_EMISSÃO"].dt.to_period("M")).size() if "DATA_EMISSÃO" in cancelamentos_tab4.columns else cancelamentos_tab4.groupby(cancelamentos_tab4["DATA_CANCELADO"].dt.to_period("M")).size()
-            media_mensal_cancelamentos = cancelamentos_mensais.mean()
+                # Média Mensal de Cancelamentos
+                cancelamentos_mensais = cancelamentos_tab4.groupby(cancelamentos_tab4[_dt_cancel_tab4].dt.to_period("M")).size()
+                media_mensal_cancelamentos = cancelamentos_mensais.mean()
+            else:
+                cancelamentos_diarios = pd.Series(dtype=float)
+                cancelamentos_semanais = pd.Series(dtype=float)
+                cancelamentos_mensais = pd.Series(dtype=float)
+                media_diaria_cancelamentos = 0
+                media_semanal_cancelamentos = 0
+                media_mensal_cancelamentos = 0
 
             # Usuário com Mais Cancelamentos
             usuario_mais_cancelamentos = cancelamentos_tab4["USUARIO"].value_counts().idxmax()
@@ -14467,7 +14507,7 @@ def main():
         dow_top_qtd = 0
         try:
             if (cancelamentos_tab4 is not None) and (not cancelamentos_tab4.empty):
-                _dtcol = "DATA_EMISSÃO" if "DATA_EMISSÃO" in cancelamentos_tab4.columns else ("DATA_CANCELADO" if "DATA_CANCELADO" in cancelamentos_tab4.columns else None)
+                _dtcol = _get_cancel_date_col(cancelamentos_tab4)
                 if _dtcol:
                     _dt = pd.to_datetime(cancelamentos_tab4[_dtcol], errors="coerce")
                     _wd = _dt.dt.weekday
@@ -14725,7 +14765,7 @@ def main():
 
             # -------- Cancelamentos por dia (mês) --------
             _c = _apply_common_filters_canc(cancelamentos_df)
-            _dtc = "DATA_EMISSÃO" if "DATA_EMISSÃO" in _c.columns else ("DATA_CANCELADO" if "DATA_CANCELADO" in _c.columns else None)
+            _dtc = _get_cancel_date_col(_c)
             if _dtc:
                 _c["__DT__"] = pd.to_datetime(_c.get(_dtc), errors="coerce").dt.date
                 _c = _c[(_c["__DT__"] >= _month_start) & (_c["__DT__"] <= _month_end)]
@@ -14889,7 +14929,7 @@ def main():
 
                 # Garante datetime (robustez)
                 emissoes_periodo["DATA_EMISSÃO"] = pd.to_datetime(emissoes_periodo["DATA_EMISSÃO"], errors="coerce")
-                _canc_dt_col = "DATA_EMISSÃO" if "DATA_EMISSÃO" in cancelamentos_periodo.columns else ("DATA_CANCELADO" if "DATA_CANCELADO" in cancelamentos_periodo.columns else None)
+                _canc_dt_col = _get_cancel_date_col(cancelamentos_periodo)
                 if _canc_dt_col:
                     cancelamentos_periodo[_canc_dt_col] = pd.to_datetime(cancelamentos_periodo[_canc_dt_col], errors="coerce")
 
@@ -15082,20 +15122,19 @@ def main():
                                 np.nan
                             )
 
-                            # Labels e tooltip (inclui cancelamentos no rótulo)
-                            txt_taxa = []
-                            for _t, _canc in zip(df_evo["Taxa"], df_evo["Cancelamentos"]):
-                                _canc_i = 0 if pd.isna(_canc) else int(_canc)
-                                if pd.notna(_t):
-                                    txt_taxa.append(f"{_fmt_pct_pt(_t)}<br>✖️ {_fmt_int_pt(_canc_i)}")
-                                else:
-                                    txt_taxa.append(f"✖️ {_fmt_int_pt(_canc_i)}" if _canc_i > 0 else "")
+                            # Labels mais limpos: mostra somente a % no gráfico.
+                            # A quantidade de cancelamentos fica no hover para evitar poluição visual.
+                            txt_pct = [(_fmt_pct_pt(_t) if pd.notna(_t) else "") for _t in df_evo["Taxa"]]
 
                             cd = np.stack([
                                 df_evo["Mes"].astype(str).values,
                                 [(_fmt_int_pt(v) if pd.notna(v) else "0") for v in df_evo["Emissoes"]],
                                 [(_fmt_int_pt(v) if pd.notna(v) else "0") for v in df_evo["Cancelamentos"]],
+                                [(_fmt_pct_pt(v) if pd.notna(v) else "—") for v in df_evo["Taxa"]],
                             ], axis=-1)
+
+                            _pct_positions = ["top center", "bottom center", "top left", "bottom right", "top right", "bottom left"]
+                            _pos_pct = _pct_positions[i % len(_pct_positions)]
 
                             fig_evolucao_comparativa.add_trace(go.Scatter(
                                 x=df_evo["Mes"],
@@ -15103,17 +15142,18 @@ def main():
                                 name=str(ano),
                                 mode="lines+markers+text",
                                 connectgaps=False,
-                                line=dict(color=cores_anos[i % len(cores_anos)], width=3, shape="spline", smoothing=0.6),
-                                marker=dict(size=7),
-                                text=txt_taxa,
-                                textposition="top center" if i == 0 else "bottom center",
-                                textfont=dict(size=13, color="rgba(241,245,249,.95)", family="Inter"),
+                                cliponaxis=False,
+                                line=dict(color=cores_anos[i % len(cores_anos)], width=3, shape="linear"),
+                                marker=dict(size=8),
+                                text=txt_pct,
+                                textposition=_pos_pct,
+                                textfont=dict(size=13, color="rgba(241,245,249,.98)", family="Inter"),
                                 customdata=cd,
                                 hovertemplate=(
                                     "<b>%{customdata[0]} / %{fullData.name}</b><br>"
-                                    "📈 <b>Taxa</b>: %{text}<br>"
-                                    "🟦 <b>Emissões</b>: %{customdata[1]}<br>"
-                                    "🟥 <b>Cancelamentos</b>: %{customdata[2]}"
+                                    "📈 <b>Taxa</b>: %{customdata[3]}<br>"
+                                    "🟥 <b>Cancelamentos</b>: %{customdata[2]}<br>"
+                                    "🟦 <b>Emissões</b>: %{customdata[1]}"
                                     "<extra></extra>"
                                 )
                             ))
@@ -15136,7 +15176,7 @@ def main():
                             hovermode="x unified",
                             plot_bgcolor="rgba(0,0,0,0)",
                             paper_bgcolor="rgba(0,0,0,0)",
-                            margin=dict(l=12, r=12, t=60, b=12),
+                            margin=dict(l=12, r=12, t=110, b=18),
                             legend=dict(
                                 title=dict(text="Ano"),
                                 orientation="h",
@@ -15154,11 +15194,26 @@ def main():
                             zeroline=False,
                             showspikes=False,
                         )
+                        # Dá folga no eixo Y para não cortar os rótulos superiores/inferiores
+                        try:
+                            _taxa_vals = pd.to_numeric(pd.concat([
+                                pd.to_numeric(t["y"], errors="coerce") if hasattr(t, "__getitem__") and "y" in t else pd.Series(dtype=float)
+                                for t in fig_evolucao_comparativa.data
+                            ]), errors="coerce")
+                            _taxa_vals = _taxa_vals[np.isfinite(_taxa_vals)]
+                            _taxa_max = float(_taxa_vals.max()) if len(_taxa_vals) else 0.0
+                        except Exception:
+                            _taxa_max = 0.0
+
+                        _y_top = max(1.25, _taxa_max + 0.60)
+                        _y_bottom = 0.0
+
                         fig_evolucao_comparativa.update_yaxes(
                             title_text="Taxa (%)",
                             ticksuffix="%",
                             dtick=0.5,
                             tickformat=".1f",
+                            range=[_y_bottom, _y_top],
                             showgrid=True,
                             gridcolor="rgba(148,163,184,.10)",
                             zeroline=False,
