@@ -1773,108 +1773,53 @@ button[kind="secondary"]:hover {
     background: #374151 !important;
 }
             
-/* ==============================
-   🎨 Sidebar e filtros — visual slate premium
-   ============================== */
+# ==============================
+# 🎨 CSS para Sidebar e Filtros
+# ==============================
+            
+<style>
+/* Estilizar a sidebar */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #252b36 0%, #1b212d 100%) !important;
-    border-right: 1px solid rgba(255,255,255,.08) !important;
-    padding: 14px 12px 18px 12px;
+background-color: #1e293b !important;
+padding: 10px;
 }
 
-section[data-testid="stSidebar"] > div {
-    background: transparent !important;
+/* Card dos filtros */
+.sidebar-card {
+background: #1e293b;
+padding: 15px;
+margin-bottom: 15px;
+border-radius: 12px;
+border: 1px solid #334155;
+box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
-
-/* Blocos/expanders dos filtros */
-section[data-testid="stSidebar"] details[data-testid="stExpander"] {
-    background: linear-gradient(180deg, rgba(47,55,70,.92), rgba(37,44,58,.96)) !important;
-    border: 1px solid rgba(255,255,255,.10) !important;
-    border-radius: 16px !important;
-    box-shadow: 0 10px 24px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04);
-    overflow: hidden;
-    margin-bottom: 14px;
+.sidebar-card h3 {
+font-size: 1rem;
+font-weight: 600;
+margin-bottom: 10px;
 }
+/* Ícones coloridos nos títulos */
+.sidebar-card:nth-of-type(1) h3 { color: #3b82f6; } /* Azul */
+.sidebar-card:nth-of-type(2) h3 { color: #8b5cf6; } /* Roxo */
+.sidebar-card:nth-of-type(3) h3 { color: #10b981; } /* Verde */
+.sidebar-card:nth-of-type(4) h3 { color: #f97316; } /* Laranja */
 
-section[data-testid="stSidebar"] details[data-testid="stExpander"] > summary {
-    background: linear-gradient(180deg, rgba(30,36,48,.96), rgba(25,31,43,.96)) !important;
-    color: #f8fafc !important;
-    font-weight: 700 !important;
-    border-bottom: 1px solid rgba(255,255,255,.08) !important;
-    padding-top: 6px !important;
-    padding-bottom: 6px !important;
-}
 
-section[data-testid="stSidebar"] details[data-testid="stExpander"] > summary:hover {
-    background: linear-gradient(180deg, rgba(36,43,56,.98), rgba(29,35,47,.98)) !important;
-}
-
-section[data-testid="stSidebar"] div[data-testid="stExpanderDetails"] {
-    background: transparent !important;
-    padding-top: 10px !important;
-}
-
-/* Labels e textos auxiliares */
-section[data-testid="stSidebar"] label,
-section[data-testid="stSidebar"] .stMarkdown,
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] span {
-    color: rgba(248,250,252,.96);
-}
-
-section[data-testid="stSidebar"] .stCaption,
-section[data-testid="stSidebar"] small {
-    color: rgba(226,232,240,.72) !important;
-}
-
-/* Campos internos */
+/* Inputs da sidebar */
 section[data-testid="stSidebar"] .stSelectbox,
 section[data-testid="stSidebar"] .stDateInput,
 section[data-testid="stSidebar"] .stRadio {
-    background: transparent !important;
-    border-radius: 14px !important;
-    padding: 0 !important;
-}
-
-section[data-testid="stSidebar"] [data-baseweb="select"] > div,
-section[data-testid="stSidebar"] [data-baseweb="input"] > div,
-section[data-testid="stSidebar"] .stDateInput > div > div {
-    background: linear-gradient(180deg, #101827, #0b1320) !important;
-    border: 1px solid rgba(96,165,250,.18) !important;
-    border-radius: 14px !important;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 6px 14px rgba(0,0,0,.18);
-}
-
-section[data-testid="stSidebar"] [data-baseweb="select"] > div:hover,
-section[data-testid="stSidebar"] [data-baseweb="input"] > div:hover,
-section[data-testid="stSidebar"] .stDateInput > div > div:hover {
-    border-color: rgba(148,163,184,.34) !important;
-}
-
-section[data-testid="stSidebar"] [data-baseweb="select"] input,
-section[data-testid="stSidebar"] [data-baseweb="input"] input,
-section[data-testid="stSidebar"] .stDateInput input {
-    color: #f8fafc !important;
-    font-weight: 600 !important;
-}
-
-section[data-testid="stSidebar"] [data-baseweb="select"] svg,
-section[data-testid="stSidebar"] .stDateInput svg {
-    color: #cbd5e1 !important;
-    fill: #cbd5e1 !important;
-}
-
-/* Botões pequenos como TER / mês etc. */
-section[data-testid="stSidebar"] button {
-    border-radius: 12px !important;
+background: #0f172a !important;
+border-radius: 8px !important;
+padding: 6px 8px !important;
 }
 
 /* NOVA CLASSE PARA O LOGO NA SIDEBAR - VERSÃO ATUALIZADA */
 .logo-sidebar {
-    display: flex;
-    justify-content: center;
-    margin-top: -20px;
-    margin-bottom: -20px;
+    display: flex;          /* ✅ Habilita o alinhamento flexível */
+    justify-content: center;/* ✅ Centraliza o conteúdo (a imagem) horizontalmente */
+    margin-top: -20px;      /* Puxa a imagem para cima. Ajuste o valor se necessário. */
+    margin-bottom: -20px;   /* Reduz o espaço abaixo do logo. Ajuste se precisar. */
 }   
             
 """, unsafe_allow_html=True)
@@ -6733,8 +6678,54 @@ def main():
                             "#0CF500",  # verde
                         ]
 
-                        for i, (ano, dfa) in enumerate(df_ec.groupby("_ANO")):
-                            dfa = dfa.sort_values("_MES_NUM")
+                        _series_taxa_por_ano = {}
+                        _anos_taxa = sorted(df_ec["_ANO"].dropna().unique().tolist())
+                        for ano in _anos_taxa:
+                            _series_taxa_por_ano[ano] = df_ec[df_ec["_ANO"] == ano].sort_values("_MES_NUM").copy()
+
+                        for i, ano in enumerate(_anos_taxa):
+                            dfa = _series_taxa_por_ano[ano].copy()
+
+                            _textos_taxa = []
+                            _textpos_taxa = []
+                            for _, _row in dfa.iterrows():
+                                _mes_ref = int(_row["_MES_NUM"])
+                                _y = float(_row["Taxa %"])
+                                _peers = []
+                                for _ano_peer in _anos_taxa:
+                                    if _ano_peer == ano:
+                                        continue
+                                    _dfa_peer = _series_taxa_por_ano.get(_ano_peer)
+                                    if _dfa_peer is None or _dfa_peer.empty:
+                                        continue
+                                    _match_peer = _dfa_peer.loc[_dfa_peer["_MES_NUM"] == _mes_ref, "Taxa %"]
+                                    if not _match_peer.empty:
+                                        _peers.append(float(_match_peer.iloc[0]))
+
+                                _tem_mesmo_valor = any(abs(_y - _p) < 1e-9 for _p in _peers)
+                                if _tem_mesmo_valor and i > 0:
+                                    _textos_taxa.append("")
+                                    _textpos_taxa.append("top center")
+                                    continue
+
+                                _textos_taxa.append(_fmt_pct_pt(_y))
+
+                                if not _peers:
+                                    _textpos_taxa.append("top center")
+                                    continue
+
+                                _diff_min = min(abs(_y - _p) for _p in _peers)
+                                if _diff_min <= 0.08:
+                                    if i % 2 == 0:
+                                        _textpos_taxa.append("top center")
+                                    else:
+                                        _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
+                                else:
+                                    if _y >= max(_peers):
+                                        _textpos_taxa.append("top center")
+                                    else:
+                                        _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
+
                             _cd_taxa = np.stack(
                                 [
                                     dfa["_LABEL_MY"],
@@ -6755,8 +6746,8 @@ def main():
                                     mode="lines+markers+text",
                                     line=dict(color=_c, width=3, shape="spline", smoothing=1.15),
                                     marker=dict(size=8, color=_c, line=dict(width=1, color="rgba(255,255,255,.18)")),
-                                    text=[_fmt_pct_pt(v) for v in dfa["Taxa %"]],
-                                    textposition="top center",
+                                    text=_textos_taxa,
+                                    textposition=_textpos_taxa,
                                     textfont=dict(size=13, color="rgba(241,245,249,.95)", family="Inter"),
                                     cliponaxis=False,
                                     customdata=_cd_taxa,
@@ -15192,7 +15183,8 @@ def main():
                             "#F87171",  # vermelho
                         ]
 
-                        for i, ano in enumerate(anos_no_periodo):
+                        _series_taxa_por_ano = {}
+                        for ano in anos_no_periodo:
                             dfa = pd.DataFrame({"Mes_Num": _meses_num})
                             dfa["Mes"] = dfa["Mes_Num"].map(_mes_pt)
                             dfa["Emissões"] = dfa["Mes_Num"].map(lambda m: float(emis_m.get((ano, m), 0)))
@@ -15207,6 +15199,50 @@ def main():
                             dfa["_CANC_FMT"] = dfa["Cancelamentos"].apply(_fmt_int_pt)
                             dfa["_TAXA_FMT"] = dfa["Taxa %"].apply(_fmt_pct_comp)
                             dfa["_DELTA_FMT"] = (dfa["Taxa %"] - 0.75).apply(_fmt_pp_pt)
+                            _series_taxa_por_ano[ano] = dfa.copy()
+
+                        for i, ano in enumerate(anos_no_periodo):
+                            dfa = _series_taxa_por_ano[ano].copy()
+
+                            _textos_taxa = []
+                            _textpos_taxa = []
+                            for _, _row in dfa.iterrows():
+                                _mes_ref = int(_row["Mes_Num"])
+                                _y = float(_row["Taxa %"])
+                                _peers = []
+                                for _ano_peer in anos_no_periodo:
+                                    if _ano_peer == ano:
+                                        continue
+                                    _dfa_peer = _series_taxa_por_ano.get(_ano_peer)
+                                    if _dfa_peer is None or _dfa_peer.empty:
+                                        continue
+                                    _match_peer = _dfa_peer.loc[_dfa_peer["Mes_Num"] == _mes_ref, "Taxa %"]
+                                    if not _match_peer.empty:
+                                        _peers.append(float(_match_peer.iloc[0]))
+
+                                _tem_mesmo_valor = any(abs(_y - _p) < 1e-9 for _p in _peers)
+                                if _tem_mesmo_valor and i > 0:
+                                    _textos_taxa.append("")
+                                    _textpos_taxa.append("top center")
+                                    continue
+
+                                _textos_taxa.append(_fmt_pct_comp(_y))
+
+                                if not _peers:
+                                    _textpos_taxa.append("top center")
+                                    continue
+
+                                _diff_min = min(abs(_y - _p) for _p in _peers)
+                                if _diff_min <= 0.08:
+                                    if i % 2 == 0:
+                                        _textpos_taxa.append("top center")
+                                    else:
+                                        _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
+                                else:
+                                    if _y >= max(_peers):
+                                        _textpos_taxa.append("top center")
+                                    else:
+                                        _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
 
                             _cd_taxa = np.stack(
                                 [
@@ -15228,8 +15264,8 @@ def main():
                                     mode="lines+markers+text",
                                     line=dict(color=_c, width=3, shape="spline", smoothing=1.15),
                                     marker=dict(size=8, color=_c, line=dict(width=1, color="rgba(255,255,255,.18)")),
-                                    text=[_fmt_pct_comp(v) for v in dfa["Taxa %"]],
-                                    textposition="top center",
+                                    text=_textos_taxa,
+                                    textposition=_textpos_taxa,
                                     textfont=dict(size=13, color="rgba(241,245,249,.95)", family="Inter"),
                                     cliponaxis=False,
                                     customdata=_cd_taxa,
