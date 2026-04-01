@@ -1570,7 +1570,81 @@ padding: 6px 8px !important;
     justify-content: center;/* ✅ Centraliza o conteúdo (a imagem) horizontalmente */
     margin-top: -20px;      /* Puxa a imagem para cima. Ajuste o valor se necessário. */
     margin-bottom: -20px;   /* Reduz o espaço abaixo do logo. Ajuste se precisar. */
-}   
+}
+
+/* ==========================================================
+   Sidebar dos filtros — versão cinza claro
+   Mantém a barra elegante, mas clareia apenas a área dos filtros
+   ========================================================== */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #eef2f7 0%, #e5e7eb 100%) !important;
+    padding: 10px !important;
+}
+
+section[data-testid="stSidebar"] details[data-testid="stExpander"] {
+    background: #e5e7eb !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08) !important;
+    overflow: hidden !important;
+}
+
+section[data-testid="stSidebar"] details[data-testid="stExpander"] > summary {
+    background: linear-gradient(180deg, #f8fafc 0%, #e5e7eb 100%) !important;
+    color: #0f172a !important;
+}
+
+section[data-testid="stSidebar"] details[data-testid="stExpander"] > summary * {
+    color: #0f172a !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stExpanderDetails"] {
+    background: #e5e7eb !important;
+    border-top: 1px solid #cbd5e1 !important;
+}
+
+section[data-testid="stSidebar"] .km-mini-label,
+section[data-testid="stSidebar"] .km-dow-sub,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span {
+    color: #334155 !important;
+}
+
+section[data-testid="stSidebar"] .km-field [data-baseweb="select"] > div,
+section[data-testid="stSidebar"] .km-field [data-baseweb="input"] > div,
+section[data-testid="stSidebar"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
+section[data-testid="stSidebar"] div[data-testid="stDateInput"] input,
+section[data-testid="stSidebar"] div[data-testid="stDateInput"] > div > div {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 14px !important;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.35) !important;
+    color: #0f172a !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stSelectbox"] *,
+section[data-testid="stSidebar"] div[data-testid="stDateInput"] *,
+section[data-testid="stSidebar"] div[data-baseweb="select"] *,
+section[data-testid="stSidebar"] input {
+    color: #0f172a !important;
+}
+
+section[data-testid="stSidebar"] .km-dow-pill {
+    background: #dbe4ee !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #1e293b !important;
+}
+
+section[data-testid="stSidebar"] button[kind="secondary"] {
+    background: #dbe4ee !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+section[data-testid="stSidebar"] button[kind="secondary"]:hover {
+    background: #cfd8e3 !important;
+}
             
 """, unsafe_allow_html=True)
 
