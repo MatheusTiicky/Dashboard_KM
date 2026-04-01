@@ -45,8 +45,12 @@ def _render_df_with_ctrc_links(
     link_url: str = "https://sistema.ssw.inf.br/bin/ssw0053",
     max_rows: int | None = None,
 ):
-    """Renderiza uma tabela HTML com a coluna de CTRC clicável.
-    O clique abre o SSW em nova aba, preservando o texto original do CTRC na célula.
+    """Renderiza uma tabela HTML com a coluna de CTRC interativa.
+    - Clique no prefixo (ex.: CGR) para abrir o SSW em nova aba.
+    - Clique no número central (ex.: 387203) para copiar para a área de transferência.
+
+    Observação: para o clique/copiar funcionar de forma confiável no Streamlit,
+    a tabela é renderizada dentro de um componente HTML com JavaScript próprio.
     """
     if df is None or df.empty:
         st.dataframe(pd.DataFrame() if df is None else df, use_container_width=True, hide_index=True)
@@ -65,75 +69,195 @@ def _render_df_with_ctrc_links(
         df_html[col] = df_html[col].apply(lambda v: _esc_html("" if pd.isna(v) else str(v)))
 
     if ctrc_col in df_view.columns:
-        def _ctrc_to_link(v):
+        def _ctrc_to_actions(v):
             try:
                 if pd.isna(v):
                     return "—"
             except Exception:
                 pass
+
             txt = str(v).strip()
             if not txt or txt.upper() in {"NAN", "NONE"}:
                 return "—"
+
+            txt_compacto = re.sub(r"\s+", "", txt)
+            m = re.match(r"^([A-Za-z]+)(\d+)(-[A-Za-z0-9]+)?$", txt_compacto)
+
+            if not m:
+                return (
+                    f'<a href="{_esc_html(link_url)}" target="_blank" rel="noopener noreferrer" '
+                    f'class="ctrc-link-cell" title="Abrir SSW">{_esc_html(txt)}</a>'
+                )
+
+            prefixo = m.group(1) or ""
+            numero = m.group(2) or ""
+            sufixo = m.group(3) or ""
+
             return (
-                f'<a href="{_esc_html(link_url)}" target="_blank" rel="noopener noreferrer" '
-                f'class="ctrc-link-cell">{_esc_html(txt)}</a>'
+                f'<div class="ctrc-actions-wrap">'
+                f'  <a href="{_esc_html(link_url)}" target="_blank" rel="noopener noreferrer" '
+                f'     class="ctrc-prefix-link" title="Abrir SSW">{_esc_html(prefixo)}</a>'
+                f'  <button type="button" class="ctrc-copy-btn" data-copy="{_esc_html(numero)}" '
+                f'     title="Copiar número {_esc_html(numero)}">'
+                f'     <span class="copy-label">{_esc_html(numero)}</span>'
+                f'  </button>'
+                f'  <span class="ctrc-suffix">{_esc_html(sufixo)}</span>'
+                f'</div>'
             )
 
-        df_html[ctrc_col] = df_view[ctrc_col].apply(_ctrc_to_link)
+        df_html[ctrc_col] = df_view[ctrc_col].apply(_ctrc_to_actions)
 
-    st.caption("Clique no CTRC para abrir o SSW.")
-    st.markdown(
-        _html_block(
-            f"""
-            <style>
-              .ctrc-link-table-wrap {{
-                width: 100%;
-                overflow-x: auto;
-                border: 1px solid rgba(148,163,184,0.16);
-                border-radius: 14px;
-                background: rgba(2, 6, 23, 0.55);
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    st.caption("Clique em CGR para abrir o SSW e clique no número para copiar.")
+
+    row_count = max(len(df_html.index), 1)
+    comp_height = min(max(150 + row_count * 40, 170), 900)
+
+    html_table = df_html.to_html(index=False, escape=False, classes="ctrc-link-table", border=0)
+    html_component = _html_block(
+        f"""
+        <style>
+          html, body {{
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            overflow: hidden;
+            font-family: Arial, Helvetica, sans-serif;
+          }}
+          .ctrc-link-table-wrap {{
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid rgba(148,163,184,0.16);
+            border-radius: 14px;
+            background: rgba(2, 6, 23, 0.55);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+          }}
+          table.ctrc-link-table {{
+            width: 100%;
+            min-width: 980px;
+            border-collapse: collapse;
+            font-size: 13px;
+          }}
+          table.ctrc-link-table thead th {{
+            padding: 10px 12px;
+            text-align: left;
+            white-space: nowrap;
+            background: rgba(255,255,255,0.04);
+            color: #94a3b8;
+            border-bottom: 1px solid rgba(148,163,184,0.18);
+          }}
+          table.ctrc-link-table tbody td {{
+            padding: 10px 12px;
+            white-space: nowrap;
+            color: #e5e7eb;
+            border-bottom: 1px solid rgba(148,163,184,0.10);
+            vertical-align: middle;
+          }}
+          table.ctrc-link-table tbody tr:hover td {{
+            background: rgba(59,130,246,0.06);
+          }}
+          .ctrc-link-cell {{
+            color: #93c5fd !important;
+            font-weight: 700;
+            text-decoration: none;
+          }}
+          .ctrc-link-cell:hover {{
+            color: #bfdbfe !important;
+            text-decoration: underline;
+          }}
+          .ctrc-actions-wrap {{
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+          }}
+          .ctrc-prefix-link {{
+            color: #93c5fd !important;
+            font-weight: 800;
+            text-decoration: none;
+          }}
+          .ctrc-prefix-link:hover {{
+            color: #bfdbfe !important;
+            text-decoration: underline;
+          }}
+          .ctrc-copy-btn {{
+            appearance: none;
+            border: 1px solid rgba(147,197,253,0.28);
+            background: rgba(59,130,246,0.10);
+            color: #eaf2ff;
+            font-weight: 700;
+            border-radius: 8px;
+            padding: 2px 8px;
+            cursor: pointer;
+            line-height: 1.2;
+          }}
+          .ctrc-copy-btn:hover {{
+            background: rgba(59,130,246,0.18);
+            border-color: rgba(147,197,253,0.42);
+          }}
+          .ctrc-suffix {{
+            color: #cbd5e1;
+            font-weight: 600;
+          }}
+        </style>
+        <div class="ctrc-link-table-wrap">
+          {html_table}
+        </div>
+        <script>
+          (function() {{
+            async function copyText(text) {{
+              const value = (text || '').trim();
+              if (!value) return false;
+
+              try {{
+                if (navigator.clipboard && window.isSecureContext) {{
+                  await navigator.clipboard.writeText(value);
+                  return true;
+                }}
+              }} catch (e) {{}}
+
+              try {{
+                const ta = document.createElement('textarea');
+                ta.value = value;
+                ta.setAttribute('readonly', 'readonly');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                ta.style.top = '0';
+                document.body.appendChild(ta);
+                ta.focus();
+                ta.select();
+                ta.setSelectionRange(0, ta.value.length);
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                return ok;
+              }} catch (e) {{
+                return false;
               }}
-              table.ctrc-link-table {{
-                width: 100%;
-                min-width: 980px;
-                border-collapse: collapse;
-                font-size: 13px;
-              }}
-              table.ctrc-link-table thead th {{
-                padding: 10px 12px;
-                text-align: left;
-                white-space: nowrap;
-                background: rgba(255,255,255,0.04);
-                color: #94a3b8;
-                border-bottom: 1px solid rgba(148,163,184,0.18);
-              }}
-              table.ctrc-link-table tbody td {{
-                padding: 10px 12px;
-                white-space: nowrap;
-                color: #e5e7eb;
-                border-bottom: 1px solid rgba(148,163,184,0.10);
-              }}
-              table.ctrc-link-table tbody tr:hover td {{
-                background: rgba(59,130,246,0.06);
-              }}
-              .ctrc-link-cell {{
-                color: #93c5fd !important;
-                font-weight: 700;
-                text-decoration: none;
-              }}
-              .ctrc-link-cell:hover {{
-                color: #bfdbfe !important;
-                text-decoration: underline;
-              }}
-            </style>
-            <div class="ctrc-link-table-wrap">
-              {df_html.to_html(index=False, escape=False, classes="ctrc-link-table", border=0)}
-            </div>
-            """
-        ),
-        unsafe_allow_html=True,
+            }}
+
+            function markButton(btn, ok) {{
+              const label = btn.querySelector('.copy-label');
+              if (!label) return;
+              const old = btn.getAttribute('data-old-label') || label.textContent;
+              btn.setAttribute('data-old-label', old);
+              label.textContent = ok ? 'Copiado' : 'Falhou';
+              window.setTimeout(function() {{
+                label.textContent = old;
+              }}, 1200);
+            }}
+
+            document.querySelectorAll('.ctrc-copy-btn').forEach(function(btn) {{
+              btn.addEventListener('click', async function(ev) {{
+                ev.preventDefault();
+                ev.stopPropagation();
+                const ok = await copyText(btn.getAttribute('data-copy') || '');
+                markButton(btn, ok);
+              }});
+            }});
+          }})();
+        </script>
+        """
     )
+
+    components.html(html_component, height=comp_height, scrolling=False)
 
 
 
