@@ -1577,30 +1577,30 @@ padding: 6px 8px !important;
    Mantém a barra elegante, mas clareia apenas a área dos filtros
    ========================================================== */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #eef2f7 0%, #e5e7eb 100%) !important;
+    background: linear-gradient(180deg, #d9dee5 0%, #cfd5dd 100%) !important;
     padding: 10px !important;
 }
 
 section[data-testid="stSidebar"] details[data-testid="stExpander"] {
-    background: #e5e7eb !important;
-    border: 1px solid #cbd5e1 !important;
+    background: #d2d8e0 !important;
+    border: 1px solid #b8c2cf !important;
     border-radius: 14px !important;
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08) !important;
     overflow: hidden !important;
 }
 
 section[data-testid="stSidebar"] details[data-testid="stExpander"] > summary {
-    background: linear-gradient(180deg, #f8fafc 0%, #e5e7eb 100%) !important;
-    color: #0f172a !important;
+    background: linear-gradient(180deg, #1e2430 0%, #171c27 100%) !important;
+    color: #dbeafe !important;
 }
 
 section[data-testid="stSidebar"] details[data-testid="stExpander"] > summary * {
-    color: #0f172a !important;
+    color: #dbeafe !important;
 }
 
 section[data-testid="stSidebar"] div[data-testid="stExpanderDetails"] {
-    background: #e5e7eb !important;
-    border-top: 1px solid #cbd5e1 !important;
+    background: #d2d8e0 !important;
+    border-top: 1px solid #b8c2cf !important;
 }
 
 section[data-testid="stSidebar"] .km-mini-label,
@@ -1608,7 +1608,7 @@ section[data-testid="stSidebar"] .km-dow-sub,
 section[data-testid="stSidebar"] label,
 section[data-testid="stSidebar"] p,
 section[data-testid="stSidebar"] span {
-    color: #334155 !important;
+    color: #2f3b4b !important;
 }
 
 section[data-testid="stSidebar"] .km-field [data-baseweb="select"] > div,
@@ -1616,10 +1616,10 @@ section[data-testid="stSidebar"] .km-field [data-baseweb="input"] > div,
 section[data-testid="stSidebar"] div[data-testid="stSelectbox"] div[data-baseweb="select"] > div,
 section[data-testid="stSidebar"] div[data-testid="stDateInput"] input,
 section[data-testid="stSidebar"] div[data-testid="stDateInput"] > div > div {
-    background: #f8fafc !important;
-    border: 1px solid #cbd5e1 !important;
+    background: #eef2f6 !important;
+    border: 1px solid #b8c2cf !important;
     border-radius: 14px !important;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.35) !important;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.22) !important;
     color: #0f172a !important;
 }
 
@@ -1631,19 +1631,19 @@ section[data-testid="stSidebar"] input {
 }
 
 section[data-testid="stSidebar"] .km-dow-pill {
-    background: #dbe4ee !important;
-    border: 1px solid #cbd5e1 !important;
+    background: #c7ced8 !important;
+    border: 1px solid #b8c2cf !important;
     color: #1e293b !important;
 }
 
 section[data-testid="stSidebar"] button[kind="secondary"] {
-    background: #dbe4ee !important;
+    background: #cfd6df !important;
     color: #1e293b !important;
-    border: 1px solid #cbd5e1 !important;
+    border: 1px solid #b8c2cf !important;
 }
 
 section[data-testid="stSidebar"] button[kind="secondary"]:hover {
-    background: #cfd8e3 !important;
+    background: #c3cad4 !important;
 }
             
 """, unsafe_allow_html=True)
