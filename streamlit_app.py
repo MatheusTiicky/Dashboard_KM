@@ -9175,6 +9175,14 @@ def main():
                             border-color: rgba(251,191,36,.34);
                             box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 10px 22px rgba(168,85,247,.16);
                         }
+                        .user-focus-plate-chip{
+                            padding: 11px 18px !important;
+                            min-height: 42px;
+                            font-size: .98rem !important;
+                            font-weight: 950 !important;
+                            letter-spacing: .03em !important;
+                            box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 12px 26px rgba(79,70,229,.18) !important;
+                        }
                         .user-focus-header{
                             position: relative;
                             z-index: 1;
@@ -12715,7 +12723,7 @@ def main():
                                                                         <div class="user-focus-role">{_esc_html(_mot_role_txt)}</div>
                                                                         <div class="user-focus-summary">{_esc_html(_mot_summary)}</div>
                                                                         <div class="user-focus-badges">
-                                                                            <div class="user-focus-shift-chip">{_esc_html(_mot_chip_left)}</div>
+                                                                            <div class="user-focus-shift-chip user-focus-plate-chip">{_esc_html(_mot_chip_left)}</div>
                                                                             {_mot_chip_right_html}
                                                                         </div>
                                                                     </div>
