@@ -123,6 +123,7 @@ def _render_df_with_ctrc_links(
             prefixo = m.group(1) or ""
             numero = m.group(2) or ""
             sufixo = m.group(3) or ""
+            sufixo_exibicao = re.sub(r"^-(.+)$", r"- \1", sufixo)
 
             return (
                 f'<div class="ctrc-actions-wrap">'
@@ -132,7 +133,7 @@ def _render_df_with_ctrc_links(
                 f'     title="Copiar número {_esc_html(numero)}">'
                 f'     <span class="copy-label">{_esc_html(numero)}</span>'
                 f'  </button>'
-                f'  <span class="ctrc-suffix">{_esc_html(sufixo)}</span>'
+                f'  <span class="ctrc-suffix">{_esc_html(sufixo_exibicao)}</span>'
                 f'</div>'
             )
 
@@ -214,12 +215,12 @@ def _render_df_with_ctrc_links(
             background: rgba(59,130,246,0.06);
           }}
           .ctrc-link-cell {{
-            color: #93c5fd !important;
+            color: #ffffff !important;
             font-weight: 700;
             text-decoration: none;
           }}
           .ctrc-link-cell:hover {{
-            color: #bfdbfe !important;
+            color: #f8fafc !important;
             text-decoration: underline;
           }}
           .ctrc-actions-wrap {{
@@ -228,12 +229,12 @@ def _render_df_with_ctrc_links(
             gap: 4px;
           }}
           .ctrc-prefix-link {{
-            color: #93c5fd !important;
+            color: #ffffff !important;
             font-weight: 800;
             text-decoration: none;
           }}
           .ctrc-prefix-link:hover {{
-            color: #bfdbfe !important;
+            color: #f8fafc !important;
             text-decoration: underline;
           }}
           .ctrc-copy-btn {{
