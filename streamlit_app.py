@@ -25,6 +25,7 @@ import streamlit.components.v1 as components
 import html
 import math
 from difflib import get_close_matches
+from io import BytesIO
 
 # --- HTML helper: evita o Streamlit tratar HTML indentado como bloco de código ---
 def _html_block(s: str) -> str:
@@ -37,6 +38,36 @@ def _html_block(s: str) -> str:
 # --- HTML escape helper (para valores dinâmicos em unsafe_allow_html) ---
 def _esc_html(v) -> str:
     return html.escape("" if v is None else str(v), quote=True)
+
+
+# --- Export helper: converte DataFrame para Excel (.xlsx) ---
+def _df_to_excel_bytes(df: pd.DataFrame, sheet_name: str = "Dados") -> bytes:
+    output = BytesIO()
+    df_export = pd.DataFrame() if df is None else df.copy()
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df_export.to_excel(writer, index=False, sheet_name=sheet_name)
+        ws = writer.sheets[sheet_name]
+        ws.freeze_panes = "A2"
+
+        for col_cells in ws.columns:
+            try:
+                col_letter = col_cells[0].column_letter
+            except Exception:
+                continue
+
+            max_length = 0
+            for cell in col_cells:
+                try:
+                    cell_value = "" if cell.value is None else str(cell.value)
+                except Exception:
+                    cell_value = ""
+                max_length = max(max_length, len(cell_value))
+
+            ws.column_dimensions[col_letter].width = min(max(max_length + 2, 12), 40)
+
+    output.seek(0)
+    return output.getvalue()
 
 
 def _render_df_with_ctrc_links(
@@ -107,10 +138,21 @@ def _render_df_with_ctrc_links(
 
         df_html[ctrc_col] = df_view[ctrc_col].apply(_ctrc_to_actions)
 
-    st.caption("Clique em CGR para abrir o SSW e clique no número para copiar.")
+    st.caption(f"Clique em CGR para abrir o SSW e clique no número para copiar. Exibindo {len(df_view)} CTRCs da placa selecionada.")
 
     row_count = max(len(df_html.index), 1)
-    comp_height = min(max(150 + row_count * 40, 170), 900)
+    _visible_rows = 12
+    _row_px = 40
+    _base_px = 120
+
+    if row_count <= _visible_rows:
+        comp_height = max(_base_px + row_count * _row_px, 220)
+        _wrap_max_height = "none"
+        _wrap_overflow_y = "visible"
+    else:
+        comp_height = min(max(_base_px + _visible_rows * _row_px, 520), 760)
+        _wrap_max_height = f"{max(comp_height - 18, 480)}px"
+        _wrap_overflow_y = "auto"
 
     html_table = df_html.to_html(index=False, escape=False, classes="ctrc-link-table", border=0)
     html_component = _html_block(
@@ -120,16 +162,29 @@ def _render_df_with_ctrc_links(
             margin: 0;
             padding: 0;
             background: transparent;
-            overflow: hidden;
+            overflow: auto;
             font-family: Arial, Helvetica, sans-serif;
           }}
           .ctrc-link-table-wrap {{
             width: 100%;
             overflow-x: auto;
+            overflow-y: {_wrap_overflow_y};
+            max-height: {_wrap_max_height};
             border: 1px solid rgba(148,163,184,0.16);
             border-radius: 14px;
             background: rgba(2, 6, 23, 0.55);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+          }}
+          .ctrc-link-table-wrap::-webkit-scrollbar {{
+            width: 10px;
+            height: 10px;
+          }}
+          .ctrc-link-table-wrap::-webkit-scrollbar-thumb {{
+            background: rgba(148,163,184,0.35);
+            border-radius: 999px;
+          }}
+          .ctrc-link-table-wrap::-webkit-scrollbar-track {{
+            background: rgba(15,23,42,0.35);
           }}
           table.ctrc-link-table {{
             width: 100%;
@@ -138,10 +193,13 @@ def _render_df_with_ctrc_links(
             font-size: 13px;
           }}
           table.ctrc-link-table thead th {{
+            position: sticky;
+            top: 0;
+            z-index: 2;
             padding: 10px 12px;
             text-align: left;
             white-space: nowrap;
-            background: rgba(255,255,255,0.04);
+            background: rgba(8,15,30,0.98);
             color: #94a3b8;
             border-bottom: 1px solid rgba(148,163,184,0.18);
           }}
@@ -257,7 +315,7 @@ def _render_df_with_ctrc_links(
         """
     )
 
-    components.html(html_component, height=comp_height, scrolling=False)
+    components.html(html_component, height=comp_height, scrolling=True)
 
 
 
@@ -5571,6 +5629,7 @@ def main():
                 # calcula BASE/ATUAL
                 _sd_b, _ed_b = _cur_sd, _cur_ed
                 _sd_a, _ed_a = None, None
+                _use_independent_month_compare = False
 
                 if (_cur_sd is None) or (_cur_ed is None):
                     st.info("Selecione um período em 🗓️ Período de Emissão para usar o comparador.")
@@ -5582,14 +5641,173 @@ def main():
                     _sd_a, _ed_a = _day_a, _day_a
                     _sd_b, _ed_b = _day_b, _day_b
                 elif _pmode == "Mês Completo":
-                    _sd_b, _ed_b = _cur_sd, _cur_ed
-                    y = int(_sd_b.year); m = int(_sd_b.month)
-                    if m == 1:
-                        y2, m2 = y - 1, 12
-                    else:
-                        y2, m2 = y, m - 1
-                    _sd_a = date(y2, m2, 1)
-                    _ed_a = date(y2, m2, calendar.monthrange(y2, m2)[1])
+                    _use_independent_month_compare = True
+
+                    def _month_span_local(_year: int, _month: int):
+                        _year = int(_year)
+                        _month = int(_month)
+                        _sd = date(_year, _month, 1)
+                        _ed = date(_year, _month, calendar.monthrange(_year, _month)[1])
+                        return _sd, _ed
+
+                    _available_month_pairs = sorted({(int(d.year), int(d.month)) for d in _all_days if d is not None})
+                    if not _available_month_pairs:
+                        _available_month_pairs = [(int(_cur_sd.year), int(_cur_sd.month))]
+
+                    _months_by_year = {}
+                    for _yy, _mm in _available_month_pairs:
+                        _months_by_year.setdefault(str(_yy), [])
+                        if int(_mm) not in _months_by_year[str(_yy)]:
+                            _months_by_year[str(_yy)].append(int(_mm))
+
+                    for _yy in list(_months_by_year.keys()):
+                        _months_by_year[_yy] = sorted(_months_by_year[_yy])
+
+                    _years_cmp = sorted(_months_by_year.keys(), key=lambda _y: int(_y))
+
+                    _actual_default_pair = (int(_cur_sd.year), int(_cur_sd.month))
+                    if _actual_default_pair not in _available_month_pairs:
+                        _actual_default_pair = _available_month_pairs[-1]
+
+                    _actual_default_idx = _available_month_pairs.index(_actual_default_pair)
+                    _base_default_pair = _available_month_pairs[_actual_default_idx - 1] if _actual_default_idx > 0 else _actual_default_pair
+
+                    _ky_base = "cmp_resumo_base_year"
+                    _km_base = "cmp_resumo_base_month"
+                    _ky_atual = "cmp_resumo_atual_year"
+                    _km_atual = "cmp_resumo_atual_month"
+
+                    if st.session_state.get(_ky_base) not in _years_cmp:
+                        st.session_state[_ky_base] = str(_base_default_pair[0])
+                    if st.session_state.get(_ky_atual) not in _years_cmp:
+                        st.session_state[_ky_atual] = str(_actual_default_pair[0])
+
+                    st.markdown(_html_block("""
+                    <style>
+                        .cmp-filter-anchor,.cmp-note-anchor{display:block;width:0;height:0;opacity:0;pointer-events:none;}
+                        div[data-testid="stVerticalBlock"]:has(.cmp-filter-anchor-base),
+                        div[data-testid="stVerticalBlock"]:has(.cmp-filter-anchor-atual){
+                            background: linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.88));
+                            border: 1px solid rgba(96,165,250,.14);
+                            border-radius: 22px;
+                            padding: 14px 14px 10px 14px;
+                            box-shadow: 0 18px 40px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.03);
+                            backdrop-filter: blur(6px);
+                        }
+                        div[data-testid="stVerticalBlock"]:has(.cmp-note-anchor){
+                            background: linear-gradient(135deg, rgba(15,23,42,.72), rgba(30,41,59,.42));
+                            border: 1px solid rgba(96,165,250,.12);
+                            border-radius: 22px;
+                            padding: 16px 18px;
+                            box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+                            min-height: 100%;
+                        }
+                        .cmp-filter-title{margin:0;font-size:.73rem;font-weight:950;letter-spacing:.22em;text-transform:uppercase;color:rgba(148,163,184,.88);}
+                        .cmp-filter-sub{margin:4px 0 12px 0;font-size:.98rem;font-weight:800;color:rgba(255,255,255,.96);}
+                        .cmp-filter-mini-label{margin:0 0 6px 2px;font-size:.70rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(191,219,254,.84);}
+                        .cmp-filter-note{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;min-height:118px;}
+                        .cmp-filter-note-badge{display:inline-flex;align-items:center;justify-content:center;padding:7px 14px;border-radius:999px;
+                            border:1px solid rgba(96,165,250,.20);background:rgba(59,130,246,.10);color:rgba(219,234,254,.96);
+                            font-size:.72rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;}
+                        .cmp-filter-note-text{margin:0;font-size:.98rem;font-weight:800;color:rgba(255,255,255,.95);}
+                        .cmp-filter-note-sub{margin:0;font-size:.80rem;color:rgba(191,219,254,.72);}
+                    </style>
+                    """), unsafe_allow_html=True)
+
+                    _cmp_col_base, _cmp_col_mid, _cmp_col_atual = st.columns([1.08, 0.82, 1.08])
+
+                    with _cmp_col_base:
+                        st.markdown(
+                            """
+                            <div class='cmp-filter-anchor cmp-filter-anchor-base'></div>
+                            <div class='cmp-filter-title'>Base</div>
+                            <div class='cmp-filter-sub'>Período de referência</div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                        _base_month_opts = [meses_abrev[_m - 1] for _m in _months_by_year.get(str(st.session_state.get(_ky_base, _base_default_pair[0])), [])]
+                        if not _base_month_opts:
+                            _base_month_opts = meses_abrev[:]
+                        _base_fields_y, _base_fields_m = st.columns(2)
+                        with _base_fields_y:
+                            st.markdown("<div class='cmp-filter-mini-label'>Ano</div>", unsafe_allow_html=True)
+                            _base_year_sel = st.selectbox(
+                                "Ano BASE",
+                                options=_years_cmp,
+                                key=_ky_base,
+                                label_visibility="collapsed",
+                            )
+                        _base_month_opts = [meses_abrev[_m - 1] for _m in _months_by_year.get(str(_base_year_sel), [])]
+                        if not _base_month_opts:
+                            _base_month_opts = meses_abrev[:]
+                        _base_default_month = (
+                            meses_abrev[_base_default_pair[1] - 1]
+                            if str(_base_default_pair[0]) == str(_base_year_sel) and (meses_abrev[_base_default_pair[1] - 1] in _base_month_opts)
+                            else _base_month_opts[0]
+                        )
+                        if st.session_state.get(_km_base) not in _base_month_opts:
+                            st.session_state[_km_base] = _base_default_month
+                        with _base_fields_m:
+                            st.markdown("<div class='cmp-filter-mini-label'>Mês</div>", unsafe_allow_html=True)
+                            _base_month_sel = st.selectbox(
+                                "Mês BASE",
+                                options=_base_month_opts,
+                                key=_km_base,
+                                label_visibility="collapsed",
+                            )
+
+                    with _cmp_col_mid:
+                        st.markdown(
+                            """
+                            <div class='cmp-note-anchor'></div>
+                            <div class='cmp-filter-note'>
+                                <div class='cmp-filter-note-badge'>Comparativo flexível</div>
+                                <p class='cmp-filter-note-text'>Mês x mês totalmente independente</p>
+                                <p class='cmp-filter-note-sub'>Escolha qualquer combinação entre BASE e ATUAL.</p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with _cmp_col_atual:
+                        st.markdown(
+                            """
+                            <div class='cmp-filter-anchor cmp-filter-anchor-atual'></div>
+                            <div class='cmp-filter-title'>Atual</div>
+                            <div class='cmp-filter-sub'>Período para comparação</div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                        _atual_fields_y, _atual_fields_m = st.columns(2)
+                        with _atual_fields_y:
+                            st.markdown("<div class='cmp-filter-mini-label'>Ano</div>", unsafe_allow_html=True)
+                            _atual_year_sel = st.selectbox(
+                                "Ano ATUAL",
+                                options=_years_cmp,
+                                key=_ky_atual,
+                                label_visibility="collapsed",
+                            )
+                        _atual_month_opts = [meses_abrev[_m - 1] for _m in _months_by_year.get(str(_atual_year_sel), [])]
+                        if not _atual_month_opts:
+                            _atual_month_opts = meses_abrev[:]
+                        _atual_default_month = (
+                            meses_abrev[_actual_default_pair[1] - 1]
+                            if str(_actual_default_pair[0]) == str(_atual_year_sel) and (meses_abrev[_actual_default_pair[1] - 1] in _atual_month_opts)
+                            else _atual_month_opts[-1]
+                        )
+                        if st.session_state.get(_km_atual) not in _atual_month_opts:
+                            st.session_state[_km_atual] = _atual_default_month
+                        with _atual_fields_m:
+                            st.markdown("<div class='cmp-filter-mini-label'>Mês</div>", unsafe_allow_html=True)
+                            _atual_month_sel = st.selectbox(
+                                "Mês ATUAL",
+                                options=_atual_month_opts,
+                                key=_km_atual,
+                                label_visibility="collapsed",
+                            )
+
+                    _sd_a, _ed_a = _month_span_local(int(_base_year_sel), meses_abrev.index(_base_month_sel) + 1)
+                    _sd_b, _ed_b = _month_span_local(int(_atual_year_sel), meses_abrev.index(_atual_month_sel) + 1)
                 elif _pmode == "Ano Completo":
                     _sd_b, _ed_b = _cur_sd, _cur_ed
                     y2 = int(_sd_b.year) - 1
@@ -5603,9 +5821,9 @@ def main():
                     _sd_a = _ed_a - timedelta(days=_span - 1)
 
                 # clamp no range disponível do dataset, se possível
-                if (_sd_a is not None) and (_ed_a is not None) and _all_days:
+                if (not _use_independent_month_compare) and (_sd_a is not None) and (_ed_a is not None) and _all_days:
                     _sd_a, _ed_a = _clamp_rng(_sd_a, _ed_a)
-                if (_sd_b is not None) and (_ed_b is not None) and _all_days:
+                if (not _use_independent_month_compare) and (_sd_b is not None) and (_ed_b is not None) and _all_days:
                     _sd_b, _ed_b = _clamp_rng(_sd_b, _ed_b)
 
                 # helpers de label
@@ -6408,580 +6626,585 @@ def main():
                                             st.plotly_chart(fig_h, use_container_width=True, config={"displayModeBar": False})
                         except Exception as _e:
                             st.warning(f"Não foi possível montar o comparativo por hora: {_e}")
-        st.markdown('<hr style="border: 1px solid #333; margin: 20px 0;">', unsafe_allow_html=True)
 
-        # =============================================================
-        # 📊 Emissões x Cancelamentos (sem filtro Dia/Semana/Mês)
-        # =============================================================
-        with st.container(border=True):
-            st.markdown("#### 📊 Emissões x Cancelamentos")
+        if st.session_state.get("period_mode", "") != "Dia Específico":
+            # =============================================================
+            # 📊 Emissões x Cancelamentos (sem filtro Dia/Semana/Mês)
+            # =============================================================
+            with st.container(border=True):
+                st.markdown("#### 📊 Emissões x Cancelamentos")
 
-            # --- colunas de data (robusto para base de cancelamentos) ---
-            _canc_dt_col = None
-            for _cand in ["DATA_CANCELADO", "DATA_CANCEL", "DATA_EMISSÃO"]:
-                if isinstance(cancelamentos_tab1, pd.DataFrame) and (_cand in cancelamentos_tab1.columns):
-                    _canc_dt_col = _cand
-                    break
+                # --- colunas de data (robusto para base de cancelamentos) ---
+                _canc_dt_col = None
+                for _cand in ["DATA_CANCELADO", "DATA_CANCEL", "DATA_EMISSÃO"]:
+                    if isinstance(cancelamentos_tab1, pd.DataFrame) and (_cand in cancelamentos_tab1.columns):
+                        _canc_dt_col = _cand
+                        break
 
-            if (not isinstance(df_tab1, pd.DataFrame)) or df_tab1.empty:
-                st.info("Sem dados de emissões no período selecionado.")
-            else:
-                period_mode = st.session_state.get("period_mode", "")
-
-                # Ano Completo OU Período Personalizado => agrega por MÊS
-                if period_mode in ["Ano Completo", "Período Personalizado"]:
-                    # Emissões mensais
-                    _e = df_tab1.copy()
-                    _e["__DT__"] = pd.to_datetime(_e.get("DATA_EMISSÃO"), errors="coerce")
-                    _e = _e[_e["__DT__"].notna()]
-                    if "CTRC_EMITIDO" in _e.columns:
-                        _e["__QTD__"] = pd.to_numeric(_e["CTRC_EMITIDO"], errors="coerce").fillna(1)
-                    else:
-                        _e["__QTD__"] = 1
-
-                    _e["__MES__"] = _e["__DT__"].dt.to_period("M").dt.to_timestamp()
-                    emis_m = _e.groupby("__MES__")["__QTD__"].sum()
-
-                    # Cancelamentos mensais
-                    canc_m = pd.Series(dtype=float)
-                    if _canc_dt_col and isinstance(cancelamentos_tab1, pd.DataFrame) and (not cancelamentos_tab1.empty):
-                        _c = cancelamentos_tab1.copy()
-                        _c["__DT__"] = pd.to_datetime(_c.get(_canc_dt_col), errors="coerce")
-                        _c = _c[_c["__DT__"].notna()]
-                        _c["__MES__"] = _c["__DT__"].dt.to_period("M").dt.to_timestamp()
-                        canc_m = _c.groupby("__MES__").size()
-
-                    # Eixo X contínuo (todos os meses do período selecionado)
-                    _dr = st.session_state.get("date_range_final", None)
-                    if isinstance(_dr, (tuple, list)) and len(_dr) == 2 and _dr[0] and _dr[1]:
-                        _start_sel = pd.to_datetime(_dr[0]).replace(day=1)
-                        _end_sel = pd.to_datetime(_dr[1]).replace(day=1)
-                        x = pd.date_range(_start_sel, _end_sel, freq="MS")
-                    else:
-                        min_mes = min(
-                            [d for d in [emis_m.index.min(), (canc_m.index.min() if not canc_m.empty else None)] if d is not None],
-                            default=None
-                        )
-                        max_mes = max(
-                            [d for d in [emis_m.index.max(), (canc_m.index.max() if not canc_m.empty else None)] if d is not None],
-                            default=None
-                        )
-                        if (min_mes is None) or (max_mes is None):
-                            st.info("Sem dados suficientes para montar o gráfico.")
-                            x = None
-                        else:
-                            x = pd.date_range(min_mes, max_mes, freq="MS")
-
-                    if x is not None:
-                        df_ec = pd.DataFrame({"Mes": x})
-                        df_ec["Emissões"] = df_ec["Mes"].map(emis_m).fillna(0).astype(int)
-                        df_ec["Cancelamentos"] = df_ec["Mes"].map(canc_m).fillna(0).astype(int)
-                        df_ec["Taxa %"] = np.where(
-                            df_ec["Emissões"] > 0,
-                            (df_ec["Cancelamentos"] / df_ec["Emissões"]) * 100.0,
-                            0.0
-                        )
-
-                        META_RATE_CANCEL = 0.0075  # 0,75%
-                        df_ec["Meta Cancelamentos"] = (df_ec["Emissões"] * META_RATE_CANCEL).round().astype(int)
-
-                        # Labels PT-BR (Jan, Fev, Mar...)
-                        _mes_pt = {1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
-                                7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"}
-                        df_ec["Label"] = df_ec["Mes"].dt.month.map(_mes_pt)
-                        if df_ec["Mes"].dt.year.nunique() > 1:
-                            df_ec["Label"] = df_ec["Label"] + "/" + df_ec["Mes"].dt.strftime("%y")
-
-                        # 1) Emissões x Cancelamentos (barras com eixos separados)
-                        def _fmt_int_pt(v):
-                            try:
-                                return f"{int(v):,}".replace(",", ".")
-                            except Exception:
-                                return str(v)
-
-                        # ==========================================================
-                        # ✅ ALINHAMENTO: Meta (linha) em cima da barra de Cancelamentos
-                        #    • barras com width+offset
-                        #    • linha deslocada pelo MESMO offset da barra vermelha
-                        # ==========================================================
-                        _xs = df_ec["Mes"].sort_values()
-                        dx = _xs.diff().median()
-                        if pd.isna(dx) or dx <= pd.Timedelta(0):
-                            dx = pd.Timedelta(days=31)
-
-                        bar_w_ms = (dx * 0.36) / pd.Timedelta(milliseconds=1)  # largura da barra
-                        off_ms   = bar_w_ms / 2                                # deslocamento das barras (azul/esq, vermelha/dir)
-
-                        # deslocamento da LINHA para ficar no CENTRO da barra vermelha:
-                        line_td  = pd.to_timedelta(off_ms + (bar_w_ms / 2), unit="ms")  # = bar_w_ms em ms
-
-                        fig = make_subplots(specs=[[{"secondary_y": True}]])
-
-                        # Emissões (azul) -> esquerda
-                        fig.add_trace(go.Bar(
-                            x=df_ec["Mes"], y=df_ec["Emissões"], name="Emissões",
-                            width=bar_w_ms, offset=-off_ms,
-                            text=[_fmt_int_pt(v) for v in df_ec["Emissões"]],
-                            textposition="outside",
-                            cliponaxis=False,
-                            marker=dict(color="rgba(96,165,250,.92)"),
-                        ), secondary_y=False)
-
-                        # Cancelamentos (vermelho) -> direita
-                        fig.add_trace(go.Bar(
-                            x=df_ec["Mes"], y=df_ec["Cancelamentos"], name="Cancelamentos",
-                            width=bar_w_ms, offset=+off_ms,
-                            text=[_fmt_int_pt(v) for v in df_ec["Cancelamentos"]],
-                            textposition="outside",
-                            cliponaxis=False,
-                            marker=dict(color="rgba(239,68,68,.92)"),
-                        ), secondary_y=True)
-
-                        # Meta (linha) -> alinhada na barra vermelha (cancelamentos)
-                        fig.add_trace(go.Scatter(
-                            x=df_ec["Mes"] + line_td,
-                            y=df_ec["Meta Cancelamentos"],
-                            name="Meta Cancelamentos",
-                            mode="lines+markers+text",
-                            line=dict(color="#FBBF24", width=3, dash="dot"),
-                            marker=dict(size=6, color="#FFFFFF", line=dict(width=1, color="rgba(255,255,255,.25)")),
-
-                            # 👇 2 quebras de linha = mais espaço pra baixo (ajuste a quantidade)
-                            text=[f"<br>{_fmt_int_pt(v)}" for v in df_ec["Meta Cancelamentos"]],
-                            textposition="bottom center",
-                            textfont=dict(size=13, color="#FFFFFF"),
-                            cliponaxis=False,
-                        ), secondary_y=True)
-
-                        fig.update_layout(
-                            barmode="overlay",  # <- necessário para offset funcionar como “grupo”
-                            bargap=0.25,
-                            bargroupgap=0.08,
-                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-                        )
-                        fig.update_layout(margin=dict(t=70))
-                        fig.update_yaxes(title_text="Emissões", secondary_y=False, rangemode="tozero")
-                        fig.update_yaxes(title_text="Cancelamentos", secondary_y=True, rangemode="tozero")
-
-                        _emax = float(df_ec["Emissões"].max()) if len(df_ec) else 0.0
-                        _cmax = float(max(df_ec["Cancelamentos"].max(), df_ec["Meta Cancelamentos"].max())) if len(df_ec) else 0.0
-                        if _emax > 0:
-                            fig.update_yaxes(range=[0, _emax * 1.12], secondary_y=False)
-                        if _cmax > 0:
-                            fig.update_yaxes(range=[0, _cmax * 1.35], secondary_y=True)  # folga p/ textos da meta
-
-                        fig.update_xaxes(tickmode="array", tickvals=df_ec["Mes"], ticktext=df_ec["Label"])
-
-                        # Tooltips aprimorados (PT-BR)
-                        df_ec["_EMIS_FMT"] = df_ec["Emissões"].apply(_fmt_int_pt)
-                        df_ec["_CANC_FMT"] = df_ec["Cancelamentos"].apply(_fmt_int_pt)
-                        df_ec["_META_CANC_FMT"] = df_ec["Meta Cancelamentos"].apply(_fmt_int_pt)
-
-                        def _fmt_pct_pt_bar(v):
-                            try:
-                                return (f"{float(v):.2f}%").replace(".", ",")
-                            except Exception:
-                                return str(v)
-
-                        df_ec["_TAXA_FMT"] = df_ec["Taxa %"].apply(_fmt_pct_pt_bar)
-                        df_ec["_DELTA_FMT"] = (df_ec["Taxa %"] - 0.75).apply(_fmt_pp_pt)
-
-                        _hover_tpl_ec = (
-                            "<b>%{customdata[3]}</b><br>"
-                            "🟦 <b>Emissões</b>: %{customdata[0]}<br>"
-                            "🟥 <b>Cancelamentos</b>: %{customdata[1]}<br>"
-                            "📉 <b>Taxa</b>: %{customdata[2]}<br>"
-                            "🎯 <b>Meta</b>: 0,75% (≤ %{customdata[4]})<br>"
-                            "📊 <b>Diferença vs meta</b>: %{customdata[5]}"
-                            "<extra></extra>"
-                        )
-
-                        _cd_ec = np.stack(
-                            [df_ec["_EMIS_FMT"], df_ec["_CANC_FMT"], df_ec["_TAXA_FMT"], df_ec["Label"], df_ec["_META_CANC_FMT"], df_ec["_DELTA_FMT"]],
-                            axis=-1
-                        )
-
-                        for _tr in fig.data:
-                            if getattr(_tr, "name", "") == "Meta Cancelamentos":
-                                continue
-                            _tr.customdata = _cd_ec
-                            _tr.hovertemplate = _hover_tpl_ec
-
-                        # Hover da linha de meta (em quantidade)
-                        _hover_tpl_meta = (
-                            "<b>%{customdata[0]}</b><br>"
-                            "🎯 <b>Meta</b>: %{customdata[1]}"
-                            "<extra></extra>"
-                        )
-                        _cd_meta = np.stack([df_ec["Label"], df_ec["_META_CANC_FMT"]], axis=-1)
-                        for _tr in fig.data:
-                            if getattr(_tr, "name", "") == "Meta Cancelamentos":
-                                _tr.customdata = _cd_meta
-                                _tr.hovertemplate = _hover_tpl_meta
-
-                        fig.update_layout(hovermode="closest")
-
-                        fig = _plotly_darkify(fig, height=500)
-                        # Reforça tamanho dos rótulos (alguns browsers/temas podem reduzir automaticamente)
-                        try:
-                            fig.update_traces(textfont_size=14, selector=dict(name="Emissões"))
-                            fig.update_traces(textfont_size=14, selector=dict(name="Cancelamentos"))
-                            fig.update_layout(uniformtext=dict(minsize=14, mode="show"))
-                        except Exception:
-                            pass
-                        st.plotly_chart(fig, use_container_width=True)
-                        st.markdown("")
-                        st.markdown("#### 📈 Evolução da Taxa de Cancelamento")
-
-                        # ======================================================
-                        # 📈 Taxa de Cancelamento — comparação por mês (Jan..Dez)
-                        #   • 1 linha por ANO (2025, 2026, ...)
-                        #   • eixo X fixo por mês para comparar anos
-                        # ======================================================
-                        fig_taxa = go.Figure()
-
-                        def _fmt_pct_pt(v):
-                            try:
-                                return (f"{float(v):.2f}%").replace(".", ",")
-                            except Exception:
-                                return str(v)
-
-                        # Mapeamento PT-BR (garante ordem Jan..Dez no eixo X)
-                        _mes_pt = {1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
-                                7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"}
-                        df_ec["_ANO"] = df_ec["Mes"].dt.year
-                        df_ec["_MES_NUM"] = df_ec["Mes"].dt.month
-                        df_ec["_MES_TXT"] = df_ec["_MES_NUM"].map(_mes_pt)
-                        df_ec["_LABEL_MY"] = df_ec["_MES_TXT"] + "/" + df_ec["Mes"].dt.strftime("%y")
-
-                        # Campos p/ tooltip (aproveita os formatadores já usados no gráfico de barras)
-                        df_ec["_EMIS_FMT"] = df_ec["Emissões"].apply(_fmt_int_pt)
-                        df_ec["_CANC_FMT"] = df_ec["Cancelamentos"].apply(_fmt_int_pt)
-                        df_ec["_TAXA_FMT"] = df_ec["Taxa %"].apply(_fmt_pct_pt)
-                        df_ec["_DELTA_FMT"] = (df_ec["Taxa %"] - 0.75).apply(_fmt_pp_pt)
-                        df_ec["_STATUS"] = np.where(df_ec["Taxa %"] <= 0.75, "Dentro da meta", "Acima da meta")
-                        df_ec["_STATUS_ICON"] = np.where(df_ec["Taxa %"] <= 0.75, "✅", "⚠️")
-
-                        _hover_tpl_taxa = (
-                            "<b>%{customdata[0]}</b><br>"
-                            "📈 <b>Taxa</b>: %{customdata[1]}<br>"
-                            "🟦 <b>Emissões</b>: %{customdata[2]}<br>"
-                            "🟥 <b>Cancelamentos</b>: %{customdata[3]}<br>"
-                            "📊 <b>Diferença vs meta</b>: %{customdata[4]}<br><br>"
-                            "<extra></extra>"
-                        )
-
-                        _pal = [
-                            "#008CFF",  # azul
-                            "#FF6200",  # roxo
-                            "#D000FF",  # ciano
-                            "#0CF500",  # verde
-                        ]
-
-                        _series_taxa_por_ano = {}
-                        _anos_taxa = sorted(df_ec["_ANO"].dropna().unique().tolist())
-                        for ano in _anos_taxa:
-                            _series_taxa_por_ano[ano] = df_ec[df_ec["_ANO"] == ano].sort_values("_MES_NUM").copy()
-
-                        for i, ano in enumerate(_anos_taxa):
-                            dfa = _series_taxa_por_ano[ano].copy()
-
-                            _textos_taxa = []
-                            _textpos_taxa = []
-                            for _, _row in dfa.iterrows():
-                                _mes_ref = int(_row["_MES_NUM"])
-                                _y = float(_row["Taxa %"])
-                                _peers = []
-                                for _ano_peer in _anos_taxa:
-                                    if _ano_peer == ano:
-                                        continue
-                                    _dfa_peer = _series_taxa_por_ano.get(_ano_peer)
-                                    if _dfa_peer is None or _dfa_peer.empty:
-                                        continue
-                                    _match_peer = _dfa_peer.loc[_dfa_peer["_MES_NUM"] == _mes_ref, "Taxa %"]
-                                    if not _match_peer.empty:
-                                        _peers.append(float(_match_peer.iloc[0]))
-
-                                _tem_mesmo_valor = any(abs(_y - _p) < 1e-9 for _p in _peers)
-                                if _tem_mesmo_valor and i > 0:
-                                    _textos_taxa.append("")
-                                    _textpos_taxa.append("top center")
-                                    continue
-
-                                _textos_taxa.append(_fmt_pct_pt(_y))
-
-                                if not _peers:
-                                    _textpos_taxa.append("top center")
-                                    continue
-
-                                _diff_min = min(abs(_y - _p) for _p in _peers)
-                                if _diff_min <= 0.08:
-                                    if i % 2 == 0:
-                                        _textpos_taxa.append("top center")
-                                    else:
-                                        _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
-                                else:
-                                    if _y >= max(_peers):
-                                        _textpos_taxa.append("top center")
-                                    else:
-                                        _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
-
-                            _cd_taxa = np.stack(
-                                [
-                                    dfa["_LABEL_MY"],
-                                    dfa["_TAXA_FMT"],
-                                    dfa["_EMIS_FMT"],
-                                    dfa["_CANC_FMT"],
-                                    dfa["_DELTA_FMT"],
-                                ],
-                                axis=-1,
-                            )
-
-                            _c = _pal[i % len(_pal)]
-                            fig_taxa.add_trace(
-                                go.Scatter(
-                                    x=dfa["_MES_NUM"],
-                                    y=dfa["Taxa %"],
-                                    name=str(ano),
-                                    mode="lines+markers+text",
-                                    line=dict(color=_c, width=3, shape="spline", smoothing=1.15),
-                                    marker=dict(size=8, color=_c, line=dict(width=1, color="rgba(255,255,255,.18)")),
-                                    text=_textos_taxa,
-                                    textposition=_textpos_taxa,
-                                    textfont=dict(size=13, color="rgba(241,245,249,.95)", family="Inter"),
-                                    cliponaxis=False,
-                                    customdata=_cd_taxa,
-                                    hovertemplate=_hover_tpl_taxa,
-                                )
-                            )
-
-                        fig_taxa.update_layout(
-                            legend_title_text="Ano",
-                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                            margin=dict(t=70),
-                            hovermode="x unified",
-                        )
-
-                        _ymax = float(df_ec["Taxa %"].max()) if len(df_ec) else 0.0
-                        _ymax = max(_ymax, 0.75)
-
-                        fig_taxa.update_yaxes(title_text="Taxa (%)", range=[0, _ymax * 1.25], ticksuffix="%")
-
-                        # Linha da meta (shape)
-                        fig_taxa.add_shape(
-                            type="line",
-                            x0=0.5, x1=12.5, xref="x",
-                            y0=0.75, y1=0.75, yref="y",
-                            line=dict(color="#F8C10C", width=2, dash="dot"),
-                        )
-
-                        # Rótulo da meta "em cima da linha" (lado direito)
-                        fig_taxa.add_annotation(
-                            x=12.45, y=0.75, xref="x", yref="y",
-                            text="Meta 0,75%",
-                            showarrow=False,
-                            xanchor="right",
-                            yanchor="bottom",
-                            yshift=6,  # sobe um pouquinho pra não encostar na linha
-                            font=dict(color="#F8C10C", size=12),
-                        )
-
-                        _tickvals_m = list(range(1, 13))
-                        _ticktext_m = [_mes_pt[m] for m in _tickvals_m]
-
-                        fig_taxa.update_xaxes(
-                            title_text="Mês",
-                            tickmode="array",
-                            tickvals=_tickvals_m,
-                            ticktext=_ticktext_m,
-                            range=[0.5, 12.5],
-                        )
-
-                        st.plotly_chart(_plotly_darkify(fig_taxa, height=600), use_container_width=True)
-
-                # Demais modos => diário
+                if (not isinstance(df_tab1, pd.DataFrame)) or df_tab1.empty:
+                    st.info("Sem dados de emissões no período selecionado.")
                 else:
-                    # Emissões diárias
-                    _e = df_tab1.copy()
-                    _e["__DT__"] = pd.to_datetime(_e.get("DATA_EMISSÃO"), errors="coerce")
-                    _e = _e[_e["__DT__"].notna()]
-                    if "CTRC_EMITIDO" in _e.columns:
-                        _e["__QTD__"] = pd.to_numeric(_e["CTRC_EMITIDO"], errors="coerce").fillna(1)
-                    else:
-                        _e["__QTD__"] = 1
+                    period_mode = st.session_state.get("period_mode", "")
 
-                    emis_d = _e.groupby(_e["__DT__"].dt.date)["__QTD__"].sum()
+                    # Ano Completo OU Período Personalizado => agrega por MÊS
+                    if period_mode in ["Ano Completo", "Período Personalizado"]:
+                        # Emissões mensais
+                        _e = df_tab1.copy()
+                        _e["__DT__"] = pd.to_datetime(_e.get("DATA_EMISSÃO"), errors="coerce")
+                        _e = _e[_e["__DT__"].notna()]
+                        if "CTRC_EMITIDO" in _e.columns:
+                            _e["__QTD__"] = pd.to_numeric(_e["CTRC_EMITIDO"], errors="coerce").fillna(1)
+                        else:
+                            _e["__QTD__"] = 1
 
-                    # Cancelamentos diários
-                    canc_d = pd.Series(dtype=float)
-                    if _canc_dt_col and isinstance(cancelamentos_tab1, pd.DataFrame) and (not cancelamentos_tab1.empty):
-                        _c = cancelamentos_tab1.copy()
-                        _c["__DT__"] = pd.to_datetime(_c.get(_canc_dt_col), errors="coerce")
-                        _c = _c[_c["__DT__"].notna()]
-                        canc_d = _c.groupby(_c["__DT__"].dt.date).size()
+                        _e["__MES__"] = _e["__DT__"].dt.to_period("M").dt.to_timestamp()
+                        emis_m = _e.groupby("__MES__")["__QTD__"].sum()
 
-                    # Eixo X contínuo (todos os dias do período)
-                    min_dt = min(
-                        [d for d in [emis_d.index.min(), (canc_d.index.min() if not canc_d.empty else None)] if d is not None],
-                        default=None
-                    )
-                    max_dt = max(
-                        [d for d in [emis_d.index.max(), (canc_d.index.max() if not canc_d.empty else None)] if d is not None],
-                        default=None
-                    )
+                        # Cancelamentos mensais
+                        canc_m = pd.Series(dtype=float)
+                        if _canc_dt_col and isinstance(cancelamentos_tab1, pd.DataFrame) and (not cancelamentos_tab1.empty):
+                            _c = cancelamentos_tab1.copy()
+                            _c["__DT__"] = pd.to_datetime(_c.get(_canc_dt_col), errors="coerce")
+                            _c = _c[_c["__DT__"].notna()]
+                            _c["__MES__"] = _c["__DT__"].dt.to_period("M").dt.to_timestamp()
+                            canc_m = _c.groupby("__MES__").size()
 
-                    if (min_dt is None) or (max_dt is None):
-                        st.info("Sem dados suficientes para montar o gráfico.")
-                    else:
-                        x = pd.date_range(pd.to_datetime(min_dt), pd.to_datetime(max_dt), freq="D")
-                        df_ec = pd.DataFrame({"Data": x})
-                        df_ec["Emissões"] = df_ec["Data"].dt.date.map(emis_d).fillna(0).astype(int)
-                        df_ec["Cancelamentos"] = df_ec["Data"].dt.date.map(canc_d).fillna(0).astype(int)
-                        df_ec["Taxa %"] = np.where(
-                            df_ec["Emissões"] > 0,
-                            (df_ec["Cancelamentos"] / df_ec["Emissões"]) * 100.0,
-                            0.0
-                        )
+                        # Eixo X contínuo (todos os meses do período selecionado)
+                        _dr = st.session_state.get("date_range_final", None)
+                        if isinstance(_dr, (tuple, list)) and len(_dr) == 2 and _dr[0] and _dr[1]:
+                            _start_sel = pd.to_datetime(_dr[0]).replace(day=1)
+                            _end_sel = pd.to_datetime(_dr[1]).replace(day=1)
+                            x = pd.date_range(_start_sel, _end_sel, freq="MS")
+                        else:
+                            min_mes = min(
+                                [d for d in [emis_m.index.min(), (canc_m.index.min() if not canc_m.empty else None)] if d is not None],
+                                default=None
+                            )
+                            max_mes = max(
+                                [d for d in [emis_m.index.max(), (canc_m.index.max() if not canc_m.empty else None)] if d is not None],
+                                default=None
+                            )
+                            if (min_mes is None) or (max_mes is None):
+                                st.info("Sem dados suficientes para montar o gráfico.")
+                                x = None
+                            else:
+                                x = pd.date_range(min_mes, max_mes, freq="MS")
 
-                        # 1) Emissões x Cancelamentos (barras com eixos separados)
-                        show_text = True
+                        if x is not None:
+                            df_ec = pd.DataFrame({"Mes": x})
+                            df_ec["Emissões"] = df_ec["Mes"].map(emis_m).fillna(0).astype(int)
+                            df_ec["Cancelamentos"] = df_ec["Mes"].map(canc_m).fillna(0).astype(int)
+                            df_ec["Taxa %"] = np.where(
+                                df_ec["Emissões"] > 0,
+                                (df_ec["Cancelamentos"] / df_ec["Emissões"]) * 100.0,
+                                0.0
+                            )
 
-                        def _fmt_int_pt(v):
+                            META_RATE_CANCEL = 0.0075  # 0,75%
+                            df_ec["Meta Cancelamentos"] = (df_ec["Emissões"] * META_RATE_CANCEL).round().astype(int)
+
+                            # Labels PT-BR (Jan, Fev, Mar...)
+                            _mes_pt = {1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
+                                    7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"}
+                            df_ec["Label"] = df_ec["Mes"].dt.month.map(_mes_pt)
+                            if df_ec["Mes"].dt.year.nunique() > 1:
+                                df_ec["Label"] = df_ec["Label"] + "/" + df_ec["Mes"].dt.strftime("%y")
+
+                            # 1) Emissões x Cancelamentos (barras com eixos separados)
+                            def _fmt_int_pt(v):
+                                try:
+                                    return f"{int(v):,}".replace(",", ".")
+                                except Exception:
+                                    return str(v)
+
+                            # ==========================================================
+                            # ✅ ALINHAMENTO: Meta (linha) em cima da barra de Cancelamentos
+                            #    • barras com width+offset
+                            #    • linha deslocada pelo MESMO offset da barra vermelha
+                            # ==========================================================
+                            _xs = df_ec["Mes"].sort_values()
+                            dx = _xs.diff().median()
+                            if pd.isna(dx) or dx <= pd.Timedelta(0):
+                                dx = pd.Timedelta(days=31)
+
+                            bar_w_ms = (dx * 0.36) / pd.Timedelta(milliseconds=1)  # largura da barra
+                            off_ms   = bar_w_ms / 2                                # deslocamento das barras (azul/esq, vermelha/dir)
+
+                            # deslocamento da LINHA para ficar no CENTRO da barra vermelha:
+                            line_td  = pd.to_timedelta(off_ms + (bar_w_ms / 2), unit="ms")  # = bar_w_ms em ms
+
+                            fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+                            # Emissões (azul) -> esquerda
+                            fig.add_trace(go.Bar(
+                                x=df_ec["Mes"], y=df_ec["Emissões"], name="Emissões",
+                                width=bar_w_ms, offset=-off_ms,
+                                text=[_fmt_int_pt(v) for v in df_ec["Emissões"]],
+                                textposition="outside",
+                                cliponaxis=False,
+                                marker=dict(color="rgba(96,165,250,.92)"),
+                            ), secondary_y=False)
+
+                            # Cancelamentos (vermelho) -> direita
+                            fig.add_trace(go.Bar(
+                                x=df_ec["Mes"], y=df_ec["Cancelamentos"], name="Cancelamentos",
+                                width=bar_w_ms, offset=+off_ms,
+                                text=[_fmt_int_pt(v) for v in df_ec["Cancelamentos"]],
+                                textposition="outside",
+                                cliponaxis=False,
+                                marker=dict(color="rgba(239,68,68,.92)"),
+                            ), secondary_y=True)
+
+                            # Meta (linha) -> alinhada na barra vermelha (cancelamentos)
+                            fig.add_trace(go.Scatter(
+                                x=df_ec["Mes"] + line_td,
+                                y=df_ec["Meta Cancelamentos"],
+                                name="Meta Cancelamentos",
+                                mode="lines+markers+text",
+                                line=dict(color="#FBBF24", width=3, dash="dot"),
+                                marker=dict(size=6, color="#FFFFFF", line=dict(width=1, color="rgba(255,255,255,.25)")),
+
+                                # 👇 2 quebras de linha = mais espaço pra baixo (ajuste a quantidade)
+                                text=[f"<br>{_fmt_int_pt(v)}" for v in df_ec["Meta Cancelamentos"]],
+                                textposition="bottom center",
+                                textfont=dict(size=13, color="#FFFFFF"),
+                                cliponaxis=False,
+                            ), secondary_y=True)
+
+                            fig.update_layout(
+                                barmode="overlay",  # <- necessário para offset funcionar como “grupo”
+                                bargap=0.25,
+                                bargroupgap=0.08,
+                                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+                            )
+                            fig.update_layout(margin=dict(t=70))
+                            fig.update_yaxes(title_text="Emissões", secondary_y=False, rangemode="tozero")
+                            fig.update_yaxes(title_text="Cancelamentos", secondary_y=True, rangemode="tozero")
+
+                            _emax = float(df_ec["Emissões"].max()) if len(df_ec) else 0.0
+                            _cmax = float(max(df_ec["Cancelamentos"].max(), df_ec["Meta Cancelamentos"].max())) if len(df_ec) else 0.0
+                            if _emax > 0:
+                                fig.update_yaxes(range=[0, _emax * 1.12], secondary_y=False)
+                            if _cmax > 0:
+                                fig.update_yaxes(range=[0, _cmax * 1.35], secondary_y=True)  # folga p/ textos da meta
+
+                            fig.update_xaxes(tickmode="array", tickvals=df_ec["Mes"], ticktext=df_ec["Label"])
+
+                            # Tooltips aprimorados (PT-BR)
+                            df_ec["_EMIS_FMT"] = df_ec["Emissões"].apply(_fmt_int_pt)
+                            df_ec["_CANC_FMT"] = df_ec["Cancelamentos"].apply(_fmt_int_pt)
+                            df_ec["_META_CANC_FMT"] = df_ec["Meta Cancelamentos"].apply(_fmt_int_pt)
+
+                            def _fmt_pct_pt_bar(v):
+                                try:
+                                    return (f"{float(v):.2f}%").replace(".", ",")
+                                except Exception:
+                                    return str(v)
+
+                            df_ec["_TAXA_FMT"] = df_ec["Taxa %"].apply(_fmt_pct_pt_bar)
+                            df_ec["_DELTA_FMT"] = (df_ec["Taxa %"] - 0.75).apply(_fmt_pp_pt)
+
+                            _hover_tpl_ec = (
+                                "<b>%{customdata[3]}</b><br>"
+                                "🟦 <b>Emissões</b>: %{customdata[0]}<br>"
+                                "🟥 <b>Cancelamentos</b>: %{customdata[1]}<br>"
+                                "📉 <b>Taxa</b>: %{customdata[2]}<br>"
+                                "🎯 <b>Meta</b>: 0,75% (≤ %{customdata[4]})<br>"
+                                "📊 <b>Diferença vs meta</b>: %{customdata[5]}"
+                                "<extra></extra>"
+                            )
+
+                            _cd_ec = np.stack(
+                                [df_ec["_EMIS_FMT"], df_ec["_CANC_FMT"], df_ec["_TAXA_FMT"], df_ec["Label"], df_ec["_META_CANC_FMT"], df_ec["_DELTA_FMT"]],
+                                axis=-1
+                            )
+
+                            for _tr in fig.data:
+                                if getattr(_tr, "name", "") == "Meta Cancelamentos":
+                                    continue
+                                _tr.customdata = _cd_ec
+                                _tr.hovertemplate = _hover_tpl_ec
+
+                            # Hover da linha de meta (em quantidade)
+                            _hover_tpl_meta = (
+                                "<b>%{customdata[0]}</b><br>"
+                                "🎯 <b>Meta</b>: %{customdata[1]}"
+                                "<extra></extra>"
+                            )
+                            _cd_meta = np.stack([df_ec["Label"], df_ec["_META_CANC_FMT"]], axis=-1)
+                            for _tr in fig.data:
+                                if getattr(_tr, "name", "") == "Meta Cancelamentos":
+                                    _tr.customdata = _cd_meta
+                                    _tr.hovertemplate = _hover_tpl_meta
+
+                            fig.update_layout(hovermode="closest")
+
+                            fig = _plotly_darkify(fig, height=500)
+                            # Reforça tamanho dos rótulos (alguns browsers/temas podem reduzir automaticamente)
                             try:
-                                return f"{int(v):,}".replace(",", ".")
+                                fig.update_traces(textfont_size=14, selector=dict(name="Emissões"))
+                                fig.update_traces(textfont_size=14, selector=dict(name="Cancelamentos"))
+                                fig.update_layout(uniformtext=dict(minsize=14, mode="show"))
                             except Exception:
-                                return str(v)
+                                pass
+                            st.plotly_chart(fig, use_container_width=True)
+                            st.markdown("")
+                            st.markdown("#### 📈 Evolução da Taxa de Cancelamento")
 
-                        fig = make_subplots(specs=[[{"secondary_y": True}]])
-                        fig.add_trace(go.Bar(
-                            x=df_ec["Data"], y=df_ec["Emissões"], name="Emissões",
-                            offsetgroup="1", alignmentgroup="g",
-                            text=[_fmt_int_pt(v) for v in df_ec["Emissões"]],
-                            textposition="outside",
-                            cliponaxis=False,
-                            marker=dict(color="rgba(96,165,250,.92)"),
-                        ), secondary_y=False)
-                        fig.add_trace(go.Bar(
-                            x=df_ec["Data"], y=df_ec["Cancelamentos"], name="Cancelamentos",
-                            offsetgroup="2", alignmentgroup="g",
-                            text=[_fmt_int_pt(v) for v in df_ec["Cancelamentos"]],
-                            textposition="outside",
-                            cliponaxis=False,
-                            marker=dict(color="rgba(239,68,68,.92)"),
-                        ), secondary_y=True)
+                            # ======================================================
+                            # 📈 Taxa de Cancelamento — comparação por mês (Jan..Dez)
+                            #   • 1 linha por ANO (2025, 2026, ...)
+                            #   • eixo X fixo por mês para comparar anos
+                            # ======================================================
+                            fig_taxa = go.Figure()
 
-                        fig.update_layout(
-                            barmode="group",
-                            bargap=0.25,
-                            bargroupgap=0.08,
-                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-                            xaxis=dict(tickformat="%d/%m"),
+                            def _fmt_pct_pt(v):
+                                try:
+                                    return (f"{float(v):.2f}%").replace(".", ",")
+                                except Exception:
+                                    return str(v)
+
+                            # Mapeamento PT-BR (garante ordem Jan..Dez no eixo X)
+                            _mes_pt = {1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
+                                    7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"}
+                            df_ec["_ANO"] = df_ec["Mes"].dt.year
+                            df_ec["_MES_NUM"] = df_ec["Mes"].dt.month
+                            df_ec["_MES_TXT"] = df_ec["_MES_NUM"].map(_mes_pt)
+                            df_ec["_LABEL_MY"] = df_ec["_MES_TXT"] + "/" + df_ec["Mes"].dt.strftime("%y")
+
+                            # Campos p/ tooltip (aproveita os formatadores já usados no gráfico de barras)
+                            df_ec["_EMIS_FMT"] = df_ec["Emissões"].apply(_fmt_int_pt)
+                            df_ec["_CANC_FMT"] = df_ec["Cancelamentos"].apply(_fmt_int_pt)
+                            df_ec["_TAXA_FMT"] = df_ec["Taxa %"].apply(_fmt_pct_pt)
+                            df_ec["_DELTA_FMT"] = (df_ec["Taxa %"] - 0.75).apply(_fmt_pp_pt)
+                            df_ec["_STATUS"] = np.where(df_ec["Taxa %"] <= 0.75, "Dentro da meta", "Acima da meta")
+                            df_ec["_STATUS_ICON"] = np.where(df_ec["Taxa %"] <= 0.75, "✅", "⚠️")
+
+                            _hover_tpl_taxa = (
+                                "<b>%{customdata[0]}</b><br>"
+                                "📈 <b>Taxa</b>: %{customdata[1]}<br>"
+                                "🟦 <b>Emissões</b>: %{customdata[2]}<br>"
+                                "🟥 <b>Cancelamentos</b>: %{customdata[3]}<br>"
+                                "📊 <b>Diferença vs meta</b>: %{customdata[4]}<br><br>"
+                                "<extra></extra>"
+                            )
+
+                            _pal = [
+                                "#008CFF",  # azul
+                                "#FF6200",  # roxo
+                                "#D000FF",  # ciano
+                                "#0CF500",  # verde
+                            ]
+
+                            _series_taxa_por_ano = {}
+                            _anos_taxa = sorted(df_ec["_ANO"].dropna().unique().tolist())
+                            for ano in _anos_taxa:
+                                _series_taxa_por_ano[ano] = df_ec[df_ec["_ANO"] == ano].sort_values("_MES_NUM").copy()
+
+                            for i, ano in enumerate(_anos_taxa):
+                                dfa = _series_taxa_por_ano[ano].copy()
+
+                                _textos_taxa = []
+                                _textpos_taxa = []
+                                for _, _row in dfa.iterrows():
+                                    _mes_ref = int(_row["_MES_NUM"])
+                                    _y = float(_row["Taxa %"])
+                                    _peers = []
+                                    for _ano_peer in _anos_taxa:
+                                        if _ano_peer == ano:
+                                            continue
+                                        _dfa_peer = _series_taxa_por_ano.get(_ano_peer)
+                                        if _dfa_peer is None or _dfa_peer.empty:
+                                            continue
+                                        _match_peer = _dfa_peer.loc[_dfa_peer["_MES_NUM"] == _mes_ref, "Taxa %"]
+                                        if not _match_peer.empty:
+                                            _peers.append(float(_match_peer.iloc[0]))
+
+                                    _tem_mesmo_valor = any(abs(_y - _p) < 1e-9 for _p in _peers)
+                                    if _tem_mesmo_valor and i > 0:
+                                        _textos_taxa.append("")
+                                        _textpos_taxa.append("top center")
+                                        continue
+
+                                    _textos_taxa.append(_fmt_pct_pt(_y))
+
+                                    if not _peers:
+                                        _textpos_taxa.append("top center")
+                                        continue
+
+                                    _diff_min = min(abs(_y - _p) for _p in _peers)
+                                    if _diff_min <= 0.08:
+                                        if i % 2 == 0:
+                                            _textpos_taxa.append("top center")
+                                        else:
+                                            _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
+                                    else:
+                                        if _y >= max(_peers):
+                                            _textpos_taxa.append("top center")
+                                        else:
+                                            _textpos_taxa.append("middle right" if _y <= 0.10 else "bottom center")
+
+                                _cd_taxa = np.stack(
+                                    [
+                                        dfa["_LABEL_MY"],
+                                        dfa["_TAXA_FMT"],
+                                        dfa["_EMIS_FMT"],
+                                        dfa["_CANC_FMT"],
+                                        dfa["_DELTA_FMT"],
+                                    ],
+                                    axis=-1,
+                                )
+
+                                _c = _pal[i % len(_pal)]
+                                fig_taxa.add_trace(
+                                    go.Scatter(
+                                        x=dfa["_MES_NUM"],
+                                        y=dfa["Taxa %"],
+                                        name=str(ano),
+                                        mode="lines+markers+text",
+                                        line=dict(color=_c, width=3, shape="spline", smoothing=1.15),
+                                        marker=dict(size=8, color=_c, line=dict(width=1, color="rgba(255,255,255,.18)")),
+                                        text=_textos_taxa,
+                                        textposition=_textpos_taxa,
+                                        textfont=dict(size=13, color="rgba(241,245,249,.95)", family="Inter"),
+                                        cliponaxis=False,
+                                        customdata=_cd_taxa,
+                                        hovertemplate=_hover_tpl_taxa,
+                                    )
+                                )
+
+                            fig_taxa.update_layout(
+                                legend_title_text="Ano",
+                                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                                margin=dict(t=70),
+                                hovermode="closest",
+                            )
+
+                            _ymax = float(df_ec["Taxa %"].max()) if len(df_ec) else 0.0
+                            _ymax = max(_ymax, 0.75)
+
+                            fig_taxa.update_yaxes(title_text="Taxa (%)", range=[0, _ymax * 1.25], ticksuffix="%")
+
+                            # Linha da meta (shape)
+                            fig_taxa.add_shape(
+                                type="line",
+                                x0=0.5, x1=12.5, xref="x",
+                                y0=0.75, y1=0.75, yref="y",
+                                line=dict(color="#F8C10C", width=2, dash="dot"),
+                            )
+
+                            # Rótulo da meta "em cima da linha" (lado direito)
+                            fig_taxa.add_annotation(
+                                x=12.45, y=0.75, xref="x", yref="y",
+                                text="Meta 0,75%",
+                                showarrow=False,
+                                xanchor="right",
+                                yanchor="bottom",
+                                yshift=6,  # sobe um pouquinho pra não encostar na linha
+                                font=dict(color="#F8C10C", size=12),
+                            )
+
+                            _tickvals_m = list(range(1, 13))
+                            _ticktext_m = [_mes_pt[m] for m in _tickvals_m]
+
+                            fig_taxa.update_xaxes(
+                                title_text="Mês",
+                                tickmode="array",
+                                tickvals=_tickvals_m,
+                                ticktext=_ticktext_m,
+                                range=[0.5, 12.5],
+                            )
+
+                            st.plotly_chart(_plotly_darkify(fig_taxa, height=600), use_container_width=True)
+
+                    # Demais modos => diário
+                    else:
+                        # Emissões diárias
+                        _e = df_tab1.copy()
+                        _e["__DT__"] = pd.to_datetime(_e.get("DATA_EMISSÃO"), errors="coerce")
+                        _e = _e[_e["__DT__"].notna()]
+                        if "CTRC_EMITIDO" in _e.columns:
+                            _e["__QTD__"] = pd.to_numeric(_e["CTRC_EMITIDO"], errors="coerce").fillna(1)
+                        else:
+                            _e["__QTD__"] = 1
+
+                        emis_d = _e.groupby(_e["__DT__"].dt.date)["__QTD__"].sum()
+
+                        # Cancelamentos diários
+                        canc_d = pd.Series(dtype=float)
+                        if _canc_dt_col and isinstance(cancelamentos_tab1, pd.DataFrame) and (not cancelamentos_tab1.empty):
+                            _c = cancelamentos_tab1.copy()
+                            _c["__DT__"] = pd.to_datetime(_c.get(_canc_dt_col), errors="coerce")
+                            _c = _c[_c["__DT__"].notna()]
+                            canc_d = _c.groupby(_c["__DT__"].dt.date).size()
+
+                        # Eixo X contínuo (todos os dias do período)
+                        min_dt = min(
+                            [d for d in [emis_d.index.min(), (canc_d.index.min() if not canc_d.empty else None)] if d is not None],
+                            default=None
                         )
-                        fig.update_layout(margin=dict(t=70))
-                        fig.update_yaxes(title_text="Emissões", secondary_y=False, rangemode="tozero")
-                        fig.update_yaxes(title_text="Cancelamentos", secondary_y=True, rangemode="tozero")
-                        _emax = float(df_ec["Emissões"].max()) if len(df_ec) else 0.0
-                        _cmax = float(df_ec["Cancelamentos"].max()) if len(df_ec) else 0.0
-                        if _emax > 0:
-                            fig.update_yaxes(range=[0, _emax * 1.12], secondary_y=False)
-                        if _cmax > 0:
-                            fig.update_yaxes(range=[0, _cmax * 1.25], secondary_y=True)
-
-                        # Tooltips aprimorados (PT-BR)
-                        df_ec["_LABEL"] = df_ec["Data"].dt.strftime("%d/%m/%Y")
-                        df_ec["_EMIS_FMT"] = df_ec["Emissões"].apply(_fmt_int_pt)
-                        df_ec["_CANC_FMT"] = df_ec["Cancelamentos"].apply(_fmt_int_pt)
-                        df_ec["_TAXA_FMT"] = df_ec["Taxa %"].apply(_fmt_pct_pt)
-                        df_ec["_DELTA_FMT"] = (df_ec["Taxa %"] - 0.75).apply(_fmt_pp_pt)
-
-                        _hover_tpl_ec = (
-                            "<b>%{customdata[3]}</b><br>"
-                            "🟦 <b>Emissões</b>: %{customdata[0]}<br>"
-                            "🟥 <b>Cancelamentos</b>: %{customdata[1]}<br>"
-                            "📉 <b>Taxa</b>: %{customdata[2]}<br>"
-                            "🎯 <b>Meta</b>: 0,75%<br>"
-                            "📊 <b>Diferença vs meta</b>: "
-                            "<extra></extra>"
+                        max_dt = max(
+                            [d for d in [emis_d.index.max(), (canc_d.index.max() if not canc_d.empty else None)] if d is not None],
+                            default=None
                         )
-                        _cd_ec = np.stack(
-                            [df_ec["_EMIS_FMT"], df_ec["_CANC_FMT"], df_ec["_TAXA_FMT"], df_ec["_LABEL"], df_ec["_DELTA_FMT"]],
-                            axis=-1
-                        )
-                        for _tr in fig.data:
-                            _tr.customdata = _cd_ec
-                            _tr.hovertemplate = _hover_tpl_ec
-                        fig.update_layout(hovermode="closest")
 
-                        fig = _plotly_darkify(fig, height=450)
-                        # Reforça tamanho dos rótulos (alguns browsers/temas podem reduzir automaticamente)
-                        try:
-                            fig.update_traces(textfont_size=14, selector=dict(name="Emissões"))
-                            fig.update_traces(textfont_size=14, selector=dict(name="Cancelamentos"))
-                            fig.update_layout(uniformtext=dict(minsize=14, mode="show"))
-                        except Exception:
-                            pass
-                        st.plotly_chart(fig, use_container_width=True)
-                        st.markdown("")
-                        st.markdown("#### 📈 Evolução da Taxa de Cancelamento")
+                        if (min_dt is None) or (max_dt is None):
+                            st.info("Sem dados suficientes para montar o gráfico.")
+                        else:
+                            x = pd.date_range(pd.to_datetime(min_dt), pd.to_datetime(max_dt), freq="D")
+                            df_ec = pd.DataFrame({"Data": x})
+                            df_ec["Emissões"] = df_ec["Data"].dt.date.map(emis_d).fillna(0).astype(int)
+                            df_ec["Cancelamentos"] = df_ec["Data"].dt.date.map(canc_d).fillna(0).astype(int)
+                            df_ec["Taxa %"] = np.where(
+                                df_ec["Emissões"] > 0,
+                                (df_ec["Cancelamentos"] / df_ec["Emissões"]) * 100.0,
+                                0.0
+                            )
 
-                        fig_taxa = go.Figure()
+                            # 1) Emissões x Cancelamentos (barras com eixos separados)
+                            show_text = True
 
-                        def _fmt_pct_pt(v):
+                            def _fmt_int_pt(v):
+                                try:
+                                    return f"{int(v):,}".replace(",", ".")
+                                except Exception:
+                                    return str(v)
+
+                            fig = make_subplots(specs=[[{"secondary_y": True}]])
+                            fig.add_trace(go.Bar(
+                                x=df_ec["Data"], y=df_ec["Emissões"], name="Emissões",
+                                offsetgroup="1", alignmentgroup="g",
+                                text=[_fmt_int_pt(v) for v in df_ec["Emissões"]],
+                                textposition="outside",
+                                cliponaxis=False,
+                                marker=dict(color="rgba(96,165,250,.92)"),
+                            ), secondary_y=False)
+                            fig.add_trace(go.Bar(
+                                x=df_ec["Data"], y=df_ec["Cancelamentos"], name="Cancelamentos",
+                                offsetgroup="2", alignmentgroup="g",
+                                text=[_fmt_int_pt(v) for v in df_ec["Cancelamentos"]],
+                                textposition="outside",
+                                cliponaxis=False,
+                                marker=dict(color="rgba(239,68,68,.92)"),
+                            ), secondary_y=True)
+
+                            fig.update_layout(
+                                barmode="group",
+                                bargap=0.25,
+                                bargroupgap=0.08,
+                                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+                                xaxis=dict(tickformat="%d/%m"),
+                            )
+                            fig.update_layout(margin=dict(t=70))
+                            fig.update_yaxes(title_text="Emissões", secondary_y=False, rangemode="tozero")
+                            fig.update_yaxes(title_text="Cancelamentos", secondary_y=True, rangemode="tozero")
+                            _emax = float(df_ec["Emissões"].max()) if len(df_ec) else 0.0
+                            _cmax = float(df_ec["Cancelamentos"].max()) if len(df_ec) else 0.0
+                            if _emax > 0:
+                                fig.update_yaxes(range=[0, _emax * 1.12], secondary_y=False)
+                            if _cmax > 0:
+                                fig.update_yaxes(range=[0, _cmax * 1.25], secondary_y=True)
+
+                            # Tooltips aprimorados (PT-BR)
+                            df_ec["_LABEL"] = df_ec["Data"].dt.strftime("%d/%m/%Y")
+                            df_ec["_EMIS_FMT"] = df_ec["Emissões"].apply(_fmt_int_pt)
+                            df_ec["_CANC_FMT"] = df_ec["Cancelamentos"].apply(_fmt_int_pt)
+                            df_ec["_TAXA_FMT"] = df_ec["Taxa %"].apply(_fmt_pct_pt)
+                            df_ec["_DELTA_FMT"] = (df_ec["Taxa %"] - 0.75).apply(_fmt_pp_pt)
+
+                            _hover_tpl_ec = (
+                                "<b>%{customdata[3]}</b><br>"
+                                "🟦 <b>Emissões</b>: %{customdata[0]}<br>"
+                                "🟥 <b>Cancelamentos</b>: %{customdata[1]}<br>"
+                                "📉 <b>Taxa</b>: %{customdata[2]}<br>"
+                                "🎯 <b>Meta</b>: 0,75%<br>"
+                                "📊 <b>Diferença vs meta</b>: "
+                                "<extra></extra>"
+                            )
+                            _cd_ec = np.stack(
+                                [df_ec["_EMIS_FMT"], df_ec["_CANC_FMT"], df_ec["_TAXA_FMT"], df_ec["_LABEL"], df_ec["_DELTA_FMT"]],
+                                axis=-1
+                            )
+                            for _tr in fig.data:
+                                _tr.customdata = _cd_ec
+                                _tr.hovertemplate = _hover_tpl_ec
+                            fig.update_layout(hovermode="closest")
+
+                            fig = _plotly_darkify(fig, height=450)
+                            # Reforça tamanho dos rótulos (alguns browsers/temas podem reduzir automaticamente)
                             try:
-                                return (f"{float(v):.2f}%").replace(".", ",")
+                                fig.update_traces(textfont_size=14, selector=dict(name="Emissões"))
+                                fig.update_traces(textfont_size=14, selector=dict(name="Cancelamentos"))
+                                fig.update_layout(uniformtext=dict(minsize=14, mode="show"))
                             except Exception:
-                                return str(v)
+                                pass
+                            st.plotly_chart(fig, use_container_width=True)
 
-                        fig_taxa.add_trace(go.Scatter(
-                            x=df_ec["Data"], y=df_ec["Taxa %"],
-                            name="Taxa %", mode="lines+markers+text",
-                            text=[_fmt_pct_pt(v) for v in df_ec["Taxa %"]],
-                            textposition="top center",
-                            cliponaxis=False,
-                        ))
-                        fig_taxa.update_layout(
-                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
-                            xaxis=dict(tickformat="%d/%m"),
-                        )
-                        fig_taxa.update_layout(margin=dict(t=70))
-                        _ymax = float(df_ec["Taxa %"].max()) if len(df_ec) else 0.0
-                        _ymax = max(_ymax, 0.75)
-                        fig_taxa.update_yaxes(title_text="Taxa (%)", range=[0, _ymax * 1.25], ticksuffix="%")
-                        fig_taxa.add_hline(
-                            y=0.75, line_dash="dot", line_color="#FBBF24", line_width=2,
-                            annotation_text="Meta 0,75%", annotation_position="top left",
-                            annotation_font_color="#FBBF24"
-                        )
+                            # ✅ No modo "Dia Específico" oculta o gráfico de evolução da taxa
+                            # para evitar exibir uma linha temporal quando o usuário está olhando
+                            # apenas um único dia selecionado.
+                            if period_mode != "Dia Específico":
+                                st.markdown("")
+                                st.markdown("#### 📈 Evolução da Taxa de Cancelamento")
 
-                        # Tooltips aprimorados (PT-BR)
-                        df_ec["_LABEL"] = df_ec["Data"].dt.strftime("%d/%m/%Y")
-                        df_ec["_EMIS_FMT"] = df_ec["Emissões"].apply(_fmt_int_pt)
-                        df_ec["_CANC_FMT"] = df_ec["Cancelamentos"].apply(_fmt_int_pt)
-                        df_ec["_TAXA_FMT"] = df_ec["Taxa %"].apply(_fmt_pct_pt)
-                        df_ec["_DELTA_FMT"] = (df_ec["Taxa %"] - 0.75).apply(_fmt_pp_pt)
-                        df_ec["_STATUS"] = np.where(df_ec["Taxa %"] <= 0.75, "Dentro da meta", "Acima da meta")
-                        df_ec["_STATUS_ICON"] = np.where(df_ec["Taxa %"] <= 0.75, "✅", "⚠️")
+                                fig_taxa = go.Figure()
 
-                        _hover_tpl_taxa = (
-                            "<b>%{customdata[0]}</b><br>"
-                            "📈 <b>Taxa</b>: %{customdata[1]}<br>"
-                            "🟦 <b>Emissões</b>: %{customdata[2]}<br>"
-                            "🟥 <b>Cancelamentos</b>: %{customdata[3]}<br>"
-                            "🎯 <b>Meta</b>: 0,75%<br>"
-                            "📊 <b>Diferença vs meta</b>: <br>"
-                            "%{customdata[6]} <b>Status</b>: %{customdata[5]}"
-                            "<extra></extra>"
-                        )
-                        _cd_taxa = np.stack(
-                            [df_ec["_LABEL"], df_ec["_TAXA_FMT"], df_ec["_EMIS_FMT"], df_ec["_CANC_FMT"], df_ec["_DELTA_FMT"], df_ec["_STATUS"], df_ec["_STATUS_ICON"]],
-                            axis=-1
-                        )
-                        if len(fig_taxa.data) > 0:
-                            fig_taxa.data[0].customdata = _cd_taxa
-                            fig_taxa.data[0].hovertemplate = _hover_tpl_taxa
-                        fig_taxa.update_layout(hovermode="closest")
+                                def _fmt_pct_pt(v):
+                                    try:
+                                        return (f"{float(v):.2f}%").replace(".", ",")
+                                    except Exception:
+                                        return str(v)
 
-                        st.plotly_chart(_plotly_darkify(fig_taxa, height=480), use_container_width=True)
+                                fig_taxa.add_trace(go.Scatter(
+                                    x=df_ec["Data"], y=df_ec["Taxa %"],
+                                    name="Taxa %", mode="lines+markers+text",
+                                    text=[_fmt_pct_pt(v) for v in df_ec["Taxa %"]],
+                                    textposition="top center",
+                                    cliponaxis=False,
+                                ))
+                                fig_taxa.update_layout(
+                                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+                                    xaxis=dict(tickformat="%d/%m"),
+                                )
+                                fig_taxa.update_layout(margin=dict(t=70))
+                                _ymax = float(df_ec["Taxa %"].max()) if len(df_ec) else 0.0
+                                _ymax = max(_ymax, 0.75)
+                                fig_taxa.update_yaxes(title_text="Taxa (%)", range=[0, _ymax * 1.25], ticksuffix="%")
+                                fig_taxa.add_hline(
+                                    y=0.75, line_dash="dot", line_color="#FBBF24", line_width=2,
+                                    annotation_text="Meta 0,75%", annotation_position="top left",
+                                    annotation_font_color="#FBBF24"
+                                )
+
+                                # Tooltips aprimorados (PT-BR)
+                                df_ec["_LABEL"] = df_ec["Data"].dt.strftime("%d/%m/%Y")
+                                df_ec["_EMIS_FMT"] = df_ec["Emissões"].apply(_fmt_int_pt)
+                                df_ec["_CANC_FMT"] = df_ec["Cancelamentos"].apply(_fmt_int_pt)
+                                df_ec["_TAXA_FMT"] = df_ec["Taxa %"].apply(_fmt_pct_pt)
+                                df_ec["_DELTA_FMT"] = (df_ec["Taxa %"] - 0.75).apply(_fmt_pp_pt)
+                                df_ec["_STATUS"] = np.where(df_ec["Taxa %"] <= 0.75, "Dentro da meta", "Acima da meta")
+                                df_ec["_STATUS_ICON"] = np.where(df_ec["Taxa %"] <= 0.75, "✅", "⚠️")
+
+                                _hover_tpl_taxa = (
+                                    "<b>%{customdata[0]}</b><br>"
+                                    "📈 <b>Taxa</b>: %{customdata[1]}<br>"
+                                    "🟦 <b>Emissões</b>: %{customdata[2]}<br>"
+                                    "🟥 <b>Cancelamentos</b>: %{customdata[3]}<br>"
+                                    "🎯 <b>Meta</b>: 0,75%<br>"
+                                    "📊 <b>Diferença vs meta</b>: <br>"
+                                    "%{customdata[6]} <b>Status</b>: %{customdata[5]}"
+                                    "<extra></extra>"
+                                )
+                                _cd_taxa = np.stack(
+                                    [df_ec["_LABEL"], df_ec["_TAXA_FMT"], df_ec["_EMIS_FMT"], df_ec["_CANC_FMT"], df_ec["_DELTA_FMT"], df_ec["_STATUS"], df_ec["_STATUS_ICON"]],
+                                    axis=-1
+                                )
+                                if len(fig_taxa.data) > 0:
+                                    fig_taxa.data[0].customdata = _cd_taxa
+                                    fig_taxa.data[0].hovertemplate = _hover_tpl_taxa
+                                fig_taxa.update_layout(hovermode="closest")
+
+                                st.plotly_chart(_plotly_darkify(fig_taxa, height=480), use_container_width=True)
 
         st.markdown("")
         st.markdown('<hr style="border: 1px solid #333; margin: 20px 0;">', unsafe_allow_html=True)
@@ -12961,16 +13184,16 @@ def main():
 
                                                         max_rows = 1000
                                                         if len(df_out) > max_rows:
-                                                            st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o CSV para ver tudo.")
+                                                            st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o Excel para ver tudo.")
 
                                                         _render_df_with_ctrc_links(df_out, max_rows=max_rows)
 
                                                         _safe_pl = re.sub(r"[^A-Z0-9_]+", "_", placa_v) if placa_v else "SEM_PLACA"
                                                         st.download_button(
-                                                            "📥 Baixar CTRCs desta placa (CSV)",
-                                                            data=df_out.to_csv(index=False).encode("utf-8"),
-                                                            file_name=f"detalhe_placa_{_safe_pl}_{_safe_u}.csv",
-                                                            mime="text/csv",
+                                                            "📥 Baixar CTRCs desta placa (Excel)",
+                                                            data=_df_to_excel_bytes(df_out, sheet_name="CTRCs da placa"),
+                                                            file_name=f"detalhe_placa_{_safe_pl}_{_safe_u}.xlsx",
+                                                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                                             key=f"dl_placa_prod_{_safe_u}_{_safe_pl}",
                                                         )
 
@@ -13752,62 +13975,7 @@ def main():
 
                 st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-                # Linha 2: Donut por Tipo (categoria) abaixo dos gráficos
-                st.markdown("#### 📄 Distribuição por Tipo (categoria)")
-                if (tipo_doc_col is None) or (df_user_em is None) or (df_user_em.empty):
-                    st.info("Sem dados no período/filtros atuais para gerar este gráfico.")
-                else:
-                    _df_pie = df_user_em.copy()
-                    _df_pie["_TIPO_CAT"] = _df_pie[tipo_doc_col].apply(categoria_tipo_documento) if (tipo_doc_col in _df_pie.columns) else "N/A"
-                    _df_pie["_TIPO_CAT"] = _df_pie["_TIPO_CAT"].fillna("N/A").astype(str)
-
-                    if medida_col:
-                        _pie = _df_pie.groupby("_TIPO_CAT")[medida_col].sum().reset_index()
-                        _pie.columns = ["Tipo", "Emissões"]
-                    else:
-                        _pie = _df_pie.groupby("_TIPO_CAT").size().reset_index(name="Emissões").rename(columns={"_TIPO_CAT": "Tipo"})
-
-                    _pie = _pie.sort_values("Emissões", ascending=False)
-
-                    # Agrupa cauda para manter visual limpo
-                    _max_slices = 8
-                    if _pie.shape[0] > _max_slices:
-                        _head = _pie.head(_max_slices - 1).copy()
-                        _tail = _pie.iloc[_max_slices - 1:].copy()
-                        _other = pd.DataFrame([{"Tipo": "OUTROS", "Emissões": float(_tail["Emissões"].sum())}])
-                        _pie = pd.concat([_head, _other], ignore_index=True)
-
-                    _pie["%"] = (_pie["Emissões"] / max(float(_pie["Emissões"].sum()), 1.0) * 100).round(1)
-
-                    _donut = (
-                        alt.Chart(_pie)
-                        .mark_arc(innerRadius=62, outerRadius=110, cornerRadius=7)
-                        .encode(
-                            theta=alt.Theta("Emissões:Q", stack=True),
-                            color=alt.Color("Tipo:N", legend=alt.Legend(title=None, labelColor="rgba(226,232,240,.85)", symbolStrokeColor="rgba(148,163,184,.25)")),
-                            tooltip=[
-                                alt.Tooltip("Tipo:N"),
-                                alt.Tooltip("Emissões:Q", format=",.0f"),
-                                alt.Tooltip("%:Q", format=".1f"),
-                            ],
-                        )
-                        .properties(height=290)
-                        .configure_view(strokeOpacity=0)
-                        .configure_legend(titleColor="rgba(226,232,240,.85)")
-                    )
-                    st.altair_chart(_donut, use_container_width=True)
-
-                    with st.expander("🔎 Ver tabela do gráfico (Tipo)"):
-                        st.dataframe(_pie, use_container_width=True, hide_index=True)
-
-                    st.download_button(
-                        "⬇️ Baixar CSV (Tipos)",
-                        data=_pie.to_csv(index=False).encode("utf-8"),
-                        file_name="emissoes_por_tipo_categoria.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                        key="dl_tipo_premium_v1",
-                    )
+                
 
             # -----------------------------
             # Tab 2 — Matriz Tipo × Placa
@@ -14374,154 +14542,7 @@ def main():
             end_date_fmt = end_date.strftime('%d/%m/%Y')
             titulo_periodo = f" | Período: {start_date_fmt} a {end_date_fmt}"
             
-        # Combina as partes para o título final
-        titulo_dinamico = f"Emissões por Usuário em cada Expedição{titulo_expedicao}{titulo_periodo}"
-        # --- INÍCIO DO NOVO GRÁFICO DE PERFORMANCE (REFERÊNCIAS NORMAL/REDESPACHO) ---
-        st.subheader("🚀 Performance Individual vs. Média da Equipe")
-        st.markdown("Total de emissões por usuário com linhas de referência (média) para **NORMAL** e **REDESPACHO** no período.")
-
-        # 1) BASE (TOTAL POR USUÁRIO)
-        medida_col_perf = "CTRC_EMITIDO" if "CTRC_EMITIDO" in df_tab3.columns else None
-        if medida_col_perf:
-            df_performance = df_tab3.groupby("USUÁRIO")[medida_col_perf].sum().reset_index()
-            df_performance.rename(columns={medida_col_perf: "Total Emissões"}, inplace=True)
-        else:
-            df_performance = df_tab3.groupby("USUÁRIO").size().reset_index(name="Total Emissões")
-
-        # 2) MÉDIAS POR TIPO (NORMAL / REDESPACHO)
-        tipo_doc_col_perf = _find_col_contains(df_tab3, "tipo", "document")
-        if tipo_doc_col_perf is None:
-            tipo_doc_col_perf = _find_col_contains(df_tab3, "tipo", "doc")
-        if tipo_doc_col_perf is None:
-            tipo_doc_col_perf = _find_col_contains(df_tab3, "tipo")
-
-        media_normal = 0.0
-        media_redesp = 0.0
-
-        if (tipo_doc_col_perf is not None) and (not df_tab3.empty):
-            _df_tmp = df_tab3.copy()
-            _df_tmp["_TIPODOC_GRP"] = _df_tmp[tipo_doc_col_perf].apply(categoria_tipo_documento)
-
-            if medida_col_perf:
-                _mx = _df_tmp.pivot_table(
-                    index="USUÁRIO",
-                    columns="_TIPODOC_GRP",
-                    values=medida_col_perf,
-                    aggfunc="sum",
-                    fill_value=0,
-                )
-            else:
-                _mx = _df_tmp.pivot_table(
-                    index="USUÁRIO",
-                    columns="_TIPODOC_GRP",
-                    values="_TIPODOC_GRP",
-                    aggfunc="size",
-                    fill_value=0,
-                )
-
-            # garante que todos os usuários do total existam (inclui 0 quando não tem o tipo)
-            _users = df_performance["USUÁRIO"].astype(str)
-            _mx = _mx.reindex(_users, fill_value=0)
-
-            if "NORMAL" in _mx.columns:
-                media_normal = float(pd.to_numeric(_mx["NORMAL"], errors="coerce").fillna(0).mean())
-            if "REDESPACHO" in _mx.columns:
-                media_redesp = float(pd.to_numeric(_mx["REDESPACHO"], errors="coerce").fillna(0).mean())
-
-        # Ordena (maior -> menor) para melhor visualização
-        df_performance = df_performance.sort_values(by="Total Emissões", ascending=False)
-
-        # 3) LÓGICA PARA O TÍTULO DINÂMICO
-        if expedicao_selecionada != "Todas":
-            titulo_expedicao = f" (Exp. {expedicao_selecionada.title()})"
-        else:
-            titulo_expedicao = ""
-
-        if mes_selecionado != "Todos":
-            titulo_periodo = f" - {mes_selecionado.title()}"
-        else:
-            start_date_fmt = start_date.strftime("%d/%m/%Y")
-            end_date_fmt = end_date.strftime("%d/%m/%Y")
-            titulo_periodo = f" | Período: {start_date_fmt} a {end_date_fmt}"
-
-        titulo_dinamico = f"Performance de Usuários — Referências Normal/Redespacho{titulo_expedicao}{titulo_periodo}"
-
-        # 4) GRÁFICO
-        if not df_performance.empty:
-            # Formata os números para exibição (padrão BR)
-            df_performance["TextoFormatado"] = df_performance["Total Emissões"].apply(
-                lambda x: f"{x:,.0f}".replace(",", ".")
-            )
-
-            fig_barras_media = px.bar(
-                df_performance,
-                x="USUÁRIO",
-                y="Total Emissões",
-                title=titulo_dinamico,
-                text="TextoFormatado",
-                labels={"USUÁRIO": "Usuário", "Total Emissões": "Total de Emissões"},
-                custom_data=["TextoFormatado"],
-            )
-
-            # Barra (única cor, sem legenda)
-            fig_barras_media.update_traces(
-                marker_color="#1814cb",
-                textposition="outside",
-                textfont_size=16,
-                hovertemplate=(
-                    "👤 <b>Usuário:</b> %{x}<br>"
-                    "📊 <b>Total:</b> %{customdata[0]}<extra></extra>"
-                ),
-                showlegend=False,
-            )
-
-            # Linhas pontilhadas (com legenda)
-            _x_cat = df_performance["USUÁRIO"].astype(str).tolist()
-
-            if media_normal > 0:
-                fig_barras_media.add_trace(
-                    go.Scatter(
-                        x=_x_cat,
-                        y=[media_normal] * len(_x_cat),
-                        mode="lines",
-                        name=f"NORMAL — média: {format_number(media_normal)}",
-                        line=dict(dash="dot", width=2, color="#22c55e"),
-                        hovertemplate=f"📈 <b>NORMAL (média)</b>: {format_number(media_normal)}<extra></extra>",
-                    )
-                )
-
-            if media_redesp > 0:
-                fig_barras_media.add_trace(
-                    go.Scatter(
-                        x=_x_cat,
-                        y=[media_redesp] * len(_x_cat),
-                        mode="lines",
-                        name=f"REDESPACHO — média: {format_number(media_redesp)}",
-                        line=dict(dash="dot", width=2, color="#f97316"),
-                        hovertemplate=f"📈 <b>REDESPACHO (média)</b>: {format_number(media_redesp)}<extra></extra>",
-                    )
-                )
-
-            _ymax_base = float(df_performance["Total Emissões"].max()) if len(df_performance) else 1.0
-            _ymax = max(_ymax_base, float(media_normal), float(media_redesp))
-            _ymax = (_ymax * 1.2) if _ymax > 0 else 1.0
-
-            fig_barras_media.update_layout(
-                height=700,
-                xaxis_title="Usuário",
-                yaxis_title="Total de Emissões",
-                legend_title="Referências",
-                yaxis=dict(range=[0, _ymax]),
-                xaxis=dict(tickfont=dict(size=14)),
-                hoverlabel=dict(font_size=14, font_family="Arial"),
-            )
-
-            st.plotly_chart(fig_barras_media, use_container_width=True)
-
-        else:
-            st.info("Não há dados de emissões para gerar a análise de performance.")
-        # --- FIM DO NOVO GRÁFICO DE PERFORMANCE (REFERÊNCIAS NORMAL/REDESPACHO) ---
-
+        
 
     with tab3:
         
@@ -17352,7 +17373,7 @@ def main():
 
                                 max_rows = 1000
                                 if len(df_view) > max_rows:
-                                    st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o CSV para ver tudo.")
+                                    st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o Excel para ver tudo.")
 
                                 st.dataframe(df_view.head(max_rows), use_container_width=True, hide_index=True)
 
@@ -21090,7 +21111,7 @@ def main():
 
                                         max_rows = 1000
                                         if len(df_out) > max_rows:
-                                            st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o CSV para ver tudo.")
+                                            st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o Excel para ver tudo.")
 
                                         _render_df_with_ctrc_links(df_out, max_rows=max_rows)
 
@@ -21198,15 +21219,15 @@ def main():
 
                                     max_rows = 1000
                                     if len(df_out) > max_rows:
-                                        st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o CSV para ver tudo.")
+                                        st.warning(f"Mostrando apenas os primeiros {max_rows} registros. Baixe o Excel para ver tudo.")
 
                                     st.dataframe(df_out.head(max_rows), use_container_width=True, hide_index=True)
 
                                     st.download_button(
-                                        "📥 Baixar CTRCs desta placa (CSV)",
-                                        data=df_out.to_csv(index=False).encode("utf-8"),
-                                        file_name=f"detalhe_placa_{placa_v}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                                        mime="text/csv",
+                                        "📥 Baixar CTRCs desta placa (Excel)",
+                                        data=_df_to_excel_bytes(df_out, sheet_name="CTRCs da placa"),
+                                        file_name=f"detalhe_placa_{placa_v}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                         key=f"dl_placa_{placa_v}",
                                     )
 
