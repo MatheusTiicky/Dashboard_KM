@@ -226,15 +226,17 @@ def _render_df_with_ctrc_links(
           .ctrc-actions-wrap {{
             display: inline-flex;
             align-items: center;
-            gap: 4px;
+            gap: 1px;
           }}
-          .ctrc-prefix-link {{
+          .ctrc-prefix-link,
+          .ctrc-prefix-link:visited,
+          .ctrc-prefix-link:active {{
             color: #ffffff !important;
             font-weight: 800;
             text-decoration: none;
           }}
           .ctrc-prefix-link:hover {{
-            color: #f8fafc !important;
+            color: #ffffff !important;
             text-decoration: underline;
           }}
           .ctrc-copy-btn {{
@@ -244,9 +246,10 @@ def _render_df_with_ctrc_links(
             color: #eaf2ff;
             font-weight: 700;
             border-radius: 8px;
-            padding: 2px 8px;
+            padding: 2px 6px;
             cursor: pointer;
             line-height: 1.2;
+            margin-right: 0;
           }}
           .ctrc-copy-btn:hover {{
             background: rgba(59,130,246,0.18);
@@ -255,6 +258,7 @@ def _render_df_with_ctrc_links(
           .ctrc-suffix {{
             color: #cbd5e1;
             font-weight: 600;
+            margin-left: -1px;
           }}
         </style>
         <div class="ctrc-link-table-wrap">
