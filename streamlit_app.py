@@ -11894,25 +11894,72 @@ def main():
                                                     _tmp["_PLACA_RAW"] = _tmp[_placa_col_det].fillna("").astype(str).str.strip().str.upper()
                                                     _tmp["_PLACA_RAW"] = _tmp["_PLACA_RAW"].replace({"": "SEM PLACA", "NAN": "SEM PLACA", "NONE": "SEM PLACA"})
                                                     _tmp["_PLACA_NORM"] = _tmp["_PLACA_RAW"].str.replace(r"[^A-Z0-9]", "", regex=True)
-    
+
                                                     # Agrupamento EDI (se o filtro estiver em EDI) / ou agrupamento não-EDI
                                                     _use_edi = (tipo_emissao_bar == "EDI")
                                                     _tmp["_PLACA_GRP"] = _tmp["_PLACA_NORM"].apply(_edi_group_from_norm if _use_edi else _nonedi_group_from_norm)
-    
-                                                    if _medida_col_det and (_medida_col_det in _tmp.columns):
-                                                        df_pl = _tmp.groupby("_PLACA_GRP")[_medida_col_det].sum().reset_index(name="Emissões")
+
+                                                    _has_cub_col_det = bool(_cub_col_det and (_cub_col_det in _tmp.columns))
+                                                    if _has_cub_col_det:
+                                                        _tmp["_CUB_NUM"] = _to_num_br(_tmp[_cub_col_det]).fillna(0)
                                                     else:
-                                                        df_pl = _tmp.groupby("_PLACA_GRP").size().reset_index(name="Emissões")
-    
-                                                    df_pl = df_pl.sort_values("Emissões", ascending=False).head(10)
+                                                        _tmp["_CUB_NUM"] = 0.0
+
+                                                    if _medida_col_det and (_medida_col_det in _tmp.columns):
+                                                        df_pl = (
+                                                            _tmp.groupby("_PLACA_GRP", dropna=False)
+                                                            .agg(
+                                                                Emissões=(_medida_col_det, "sum"),
+                                                                Cubagem_M3=("_CUB_NUM", "sum"),
+                                                            )
+                                                            .reset_index()
+                                                        )
+                                                    else:
+                                                        df_pl = (
+                                                            _tmp.groupby("_PLACA_GRP", dropna=False)
+                                                            .agg(
+                                                                Emissões=("_PLACA_GRP", "size"),
+                                                                Cubagem_M3=("_CUB_NUM", "sum"),
+                                                            )
+                                                            .reset_index()
+                                                        )
+
+                                                    df_pl["Com cubagem"] = np.where(df_pl["Cubagem_M3"] > 0, "Com cubagem", "Sem cubagem")
+                                                    df_pl = df_pl.sort_values(["Emissões", "Cubagem_M3"], ascending=[False, False]).head(10).copy()
+                                                    df_pl["_EMIS_TXT"] = df_pl["Emissões"].apply(lambda x: f"{x:,.0f}".replace(",", "."))
+                                                    df_pl["_CUB_TXT"] = df_pl["Cubagem_M3"].apply(lambda x: (f"{float(x):.2f} m³").replace(".", ","))
+                                                    _order_pl = df_pl["_PLACA_GRP"].tolist()
+                                                    df_pl["_PLACA_GRP"] = pd.Categorical(df_pl["_PLACA_GRP"], categories=_order_pl, ordered=True)
+
                                                     fig_pl = px.bar(
                                                         df_pl,
                                                         x="_PLACA_GRP",
                                                         y="Emissões",
-                                                        text=df_pl["Emissões"].apply(lambda x: f"{x:,.0f}".replace(",", ".")),
+                                                        color="Com cubagem",
+                                                        color_discrete_map={
+                                                            "Com cubagem": "#22c55e",
+                                                            "Sem cubagem": "#7dd3fc",
+                                                        },
+                                                        text="_EMIS_TXT",
+                                                        category_orders={"_PLACA_GRP": _order_pl},
+                                                        custom_data=["_CUB_TXT", "Com cubagem"],
                                                     )
-                                                    fig_pl.update_traces(textposition="outside", cliponaxis=False)
-                                                    fig_pl.update_layout(height=360, xaxis_title="", yaxis_title="Emissões")
+                                                    fig_pl.update_traces(
+                                                        textposition="outside",
+                                                        cliponaxis=False,
+                                                        hovertemplate=(
+                                                            "🚚 <b>%{x}</b><br>"
+                                                            "🧾 Emissões: <b>%{y}</b><br>"
+                                                            "📐 Cubagem: <b>%{customdata[0]}</b><br>"
+                                                            "🏷️ Status: <b>%{customdata[1]}</b><extra></extra>"
+                                                        ),
+                                                    )
+                                                    fig_pl.update_layout(
+                                                        height=360,
+                                                        xaxis_title="",
+                                                        yaxis_title="Emissões",
+                                                        legend_title_text="",
+                                                    )
                                                     st.plotly_chart(fig_pl, use_container_width=True)
                                                 else:
                                                     st.info("Sem dados de placa disponíveis para este usuário nos filtros atuais.")
