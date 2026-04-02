@@ -127,8 +127,8 @@ def _render_df_with_ctrc_links(
 
             return (
                 f'<div class="ctrc-actions-wrap">'
-                f'  <a href="{_esc_html(link_url)}" target="_blank" rel="noopener noreferrer" '
-                f'     class="ctrc-prefix-link" title="Abrir SSW">{_esc_html(prefixo)}</a>'
+                f'  <button type="button" class="ctrc-prefix-btn" data-url="{_esc_html(link_url)}" '
+                f'     title="Abrir SSW">{_esc_html(prefixo)}</button>'
                 f'  <button type="button" class="ctrc-copy-btn" data-copy="{_esc_html(numero)}" '
                 f'     title="Copiar número {_esc_html(numero)}">'
                 f'     <span class="copy-label">{_esc_html(numero)}</span>'
@@ -226,16 +226,21 @@ def _render_df_with_ctrc_links(
           .ctrc-actions-wrap {{
             display: inline-flex;
             align-items: center;
-            gap: 1px;
+            gap: 0;
           }}
-          .ctrc-prefix-link,
-          .ctrc-prefix-link:visited,
-          .ctrc-prefix-link:active {{
+          .ctrc-prefix-btn {{
+            appearance: none;
+            background: transparent;
+            border: 0;
             color: #ffffff !important;
             font-weight: 800;
             text-decoration: none;
+            padding: 0 2px 0 0;
+            margin: 0;
+            cursor: pointer;
+            line-height: 1.1;
           }}
-          .ctrc-prefix-link:hover {{
+          .ctrc-prefix-btn:hover {{
             color: #ffffff !important;
             text-decoration: underline;
           }}
@@ -249,7 +254,7 @@ def _render_df_with_ctrc_links(
             padding: 2px 6px;
             cursor: pointer;
             line-height: 1.2;
-            margin-right: 0;
+            margin: 0 -3px 0 0;
           }}
           .ctrc-copy-btn:hover {{
             background: rgba(59,130,246,0.18);
@@ -258,7 +263,8 @@ def _render_df_with_ctrc_links(
           .ctrc-suffix {{
             color: #cbd5e1;
             font-weight: 600;
-            margin-left: -1px;
+            margin-left: -5px;
+            letter-spacing: -0.1px;
           }}
         </style>
         <div class="ctrc-link-table-wrap">
@@ -306,6 +312,15 @@ def _render_df_with_ctrc_links(
                 label.textContent = old;
               }}, 1200);
             }}
+
+            document.querySelectorAll('.ctrc-prefix-btn').forEach(function(btn) {{
+              btn.addEventListener('click', function(ev) {{
+                ev.preventDefault();
+                ev.stopPropagation();
+                const url = btn.getAttribute('data-url') || '';
+                if (url) window.open(url, '_blank', 'noopener,noreferrer');
+              }});
+            }});
 
             document.querySelectorAll('.ctrc-copy-btn').forEach(function(btn) {{
               btn.addEventListener('click', async function(ev) {{
