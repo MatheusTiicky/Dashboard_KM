@@ -6047,23 +6047,21 @@ def main():
 
                         .cmp-mid-period{
                             display:flex;
-                            flex-direction:column;
                             align-items:center;
                             justify-content:center;
+                            flex-wrap:wrap;
                             gap:10px;
                             margin:0 0 10px 0;
                             text-align:center;
                         }
 
-                        .cmp-mid-period-block{
-                            display:flex;
-                            flex-direction:column;
+                        .cmp-mid-period-item{
+                            display:inline-flex;
                             align-items:center;
-                            justify-content:center;
-                            gap:4px;
+                            gap:8px;
                         }
 
-                        .cmp-mid-period-block .date{
+                        .cmp-mid-period-item .date{
                             font-size:1.08rem;
                             font-weight:950;
                             letter-spacing:.14em;
@@ -6072,7 +6070,7 @@ def main():
                             line-height:1.15;
                         }
 
-                        .cmp-mid-period-block .dow{
+                        .cmp-mid-period-item .dow{
                             font-size:.90rem;
                             font-weight:900;
                             letter-spacing:.16em;
@@ -6082,11 +6080,15 @@ def main():
                         }
 
                         .cmp-mid-period-arrow{
+                            display:inline-flex;
+                            align-items:center;
+                            justify-content:center;
                             font-size:1.55rem;
                             font-weight:1000;
                             color:rgba(255,255,255,.90);
                             line-height:1;
                             text-shadow:0 0 18px rgba(255,255,255,.18);
+                            margin:0 2px;
                         }
 
                         .cmp-mid-sub{
@@ -6338,12 +6340,12 @@ def main():
 
                         if dx and wx and dy and wy:
                             return f"""<div class='cmp-mid-period'>
-                                <div class='cmp-mid-period-block'>
+                                <div class='cmp-mid-period-item'>
                                     <span class='date'>{_esc_html(dx)}</span>
                                     <span class='dow'>{_esc_html(wx)}</span>
                                 </div>
                                 <div class='cmp-mid-period-arrow'>→</div>
-                                <div class='cmp-mid-period-block'>
+                                <div class='cmp-mid-period-item'>
                                     <span class='date'>{_esc_html(dy)}</span>
                                     <span class='dow'>{_esc_html(wy)}</span>
                                 </div>
