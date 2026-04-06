@@ -3185,18 +3185,80 @@ def calcular_emissoes_brutas(df_emissoes):
     return len(df_emissoes)
 
 
+def calcular_total_cancelamentos(df_cancelamentos):
+    """
+    Retorna o total de cancelamentos do recorte atual.
+    Prioriza CTRCs únicos quando a coluna existe; caso contrário, usa a contagem de linhas.
+    """
+    if df_cancelamentos is None or df_cancelamentos.empty:
+        return 0
+
+    for col in ["CTRC_CANCELADOS", "Serie/Numero CTRC", "SERIE/NUMERO CTRC"]:
+        if col in df_cancelamentos.columns:
+            serie = (
+                df_cancelamentos[col]
+                .fillna("")
+                .astype(str)
+                .str.strip()
+                .replace({"": np.nan, "nan": np.nan, "None": np.nan})
+            )
+            qtd = int(serie.nunique(dropna=True))
+            if qtd > 0:
+                return qtd
+
+    return int(len(df_cancelamentos))
+
+
 def calcular_emissoes_reais(df_emissoes, df_cancelamentos):
     """
     Retorna emissões reais = emissões brutas - cancelamentos.
-    Emissões brutas:
-      - se existir 'CTRC_EMITIDO' (agregado) -> soma
-      - senão -> conta linhas (detalhado)
-    Cancelamentos:
-      - conta linhas do df_cancelamentos
     """
     bruto = calcular_emissoes_brutas(df_emissoes)
-    cancelados = 0 if (df_cancelamentos is None or df_cancelamentos.empty) else len(df_cancelamentos)
-    return bruto - cancelados
+    cancelados = calcular_total_cancelamentos(df_cancelamentos)
+    return max(bruto - cancelados, 0)
+
+
+def calcular_emissoes_liquidas(df_emissoes, df_cancelamentos):
+    return calcular_emissoes_reais(df_emissoes, df_cancelamentos)
+
+
+def _series_liquida(emis_series: pd.Series | None, canc_series: pd.Series | None) -> pd.Series:
+    emis_series = pd.Series(dtype=float) if emis_series is None else emis_series
+    canc_series = pd.Series(dtype=float) if canc_series is None else canc_series
+
+    idx = emis_series.index.union(canc_series.index)
+    emis = pd.to_numeric(emis_series.reindex(idx, fill_value=0), errors="coerce").fillna(0)
+    canc = pd.to_numeric(canc_series.reindex(idx, fill_value=0), errors="coerce").fillna(0)
+    return (emis - canc).clip(lower=0)
+
+
+def _group_liquido_por_coluna(
+    df_emissoes: pd.DataFrame,
+    df_cancelamentos: pd.DataFrame,
+    col_emissao: str | None,
+    col_cancelamento: str | None = None,
+) -> pd.Series:
+    col_cancelamento = col_cancelamento or col_emissao
+
+    emis = pd.Series(dtype=float)
+    canc = pd.Series(dtype=float)
+
+    if isinstance(df_emissoes, pd.DataFrame) and (not df_emissoes.empty) and col_emissao and (col_emissao in df_emissoes.columns):
+        _e = df_emissoes.copy()
+        _e[col_emissao] = _e[col_emissao].fillna("").astype(str).str.strip()
+        _e = _e[_e[col_emissao] != ""]
+        if "CTRC_EMITIDO" in _e.columns:
+            emis = pd.to_numeric(_e.groupby(col_emissao)["CTRC_EMITIDO"].sum(), errors="coerce").fillna(0)
+        else:
+            emis = _e.groupby(col_emissao).size()
+
+    if isinstance(df_cancelamentos, pd.DataFrame) and (not df_cancelamentos.empty) and col_cancelamento and (col_cancelamento in df_cancelamentos.columns):
+        _c = df_cancelamentos.copy()
+        _c[col_cancelamento] = _c[col_cancelamento].fillna("").astype(str).str.strip()
+        _c = _c[_c[col_cancelamento] != ""]
+        canc = _c.groupby(col_cancelamento).size()
+
+    return _series_liquida(emis, canc).sort_values(ascending=False)
 
 def main():
 
@@ -3683,10 +3745,11 @@ def main():
         # Calculando KPIs principais
         # Emissões serão recalculadas pela base BRUTA filtrada logo abaixo,
         # para garantir o mesmo total exibido no CSV original.
-        total_emissoes = calcular_emissoes_brutas(df_tab1)
-        total_cancelamentos = len(cancelamentos_tab1)
+        total_emissoes_brutas = calcular_emissoes_brutas(df_tab1)
+        total_cancelamentos = calcular_total_cancelamentos(cancelamentos_tab1)
+        total_emissoes = calcular_emissoes_liquidas(df_tab1, cancelamentos_tab1)
 
-        denom_taxa = total_emissoes
+        denom_taxa = total_emissoes_brutas
         taxa_cancelamento = (total_cancelamentos / denom_taxa * 100) if denom_taxa > 0 else 0
 
         meta_taxa = 0.75
@@ -4904,17 +4967,18 @@ def main():
         total_peso  = float(_to_num_br(base_ops_df[peso_col]).sum()) if (peso_col and not base_ops_df.empty) else 0.0
         total_frete = float(_to_num_br(base_ops_df[frete_col]).sum()) if (frete_col and not base_ops_df.empty) else 0.0
 
-        # ✅ Emissões BRUTAS sempre pela base bruta filtrada (evita mostrar valor líquido)
+        # ✅ Emissões exibidas no dashboard = emissões líquidas (brutas - cancelamentos)
         try:
             if (not base_ops_df.empty) and (ctrc_col := (_find_col_contains(base_ops_df, "serie", "numero", "ctrc") or _find_col_contains(base_ops_df, "ctrc"))) and (ctrc_col in base_ops_df.columns):
                 _ctrc_norm = base_ops_df[ctrc_col].fillna("").astype(str).str.strip()
-                total_emissoes = int(_ctrc_norm.replace({"": np.nan, "nan": np.nan, "None": np.nan}).nunique(dropna=True))
+                total_emissoes_brutas = int(_ctrc_norm.replace({"": np.nan, "nan": np.nan, "None": np.nan}).nunique(dropna=True))
             else:
-                total_emissoes = int(len(base_ops_df)) if isinstance(base_ops_df, pd.DataFrame) else int(total_emissoes)
+                total_emissoes_brutas = int(len(base_ops_df)) if isinstance(base_ops_df, pd.DataFrame) else int(total_emissoes_brutas)
         except Exception:
-            total_emissoes = int(calcular_emissoes_brutas(df_tab1))
+            total_emissoes_brutas = int(calcular_emissoes_brutas(df_tab1))
 
-        denom_taxa = total_emissoes
+        total_emissoes = max(int(total_emissoes_brutas) - int(total_cancelamentos), 0)
+        denom_taxa = total_emissoes_brutas
         taxa_cancelamento = (total_cancelamentos / denom_taxa * 100) if denom_taxa > 0 else 0
 
         # Colunas prováveis
@@ -4952,6 +5016,7 @@ def main():
         # -------------------------
         # Sparklines (série diária dentro do período filtrado)
         # -------------------------
+        emis_ts_brutas = pd.Series(dtype=float)
         emis_ts = pd.Series(dtype=float)
         canc_ts = pd.Series(dtype=float)
 
@@ -4961,9 +5026,9 @@ def main():
             tmp_e["DATA_EMISSÃO"] = pd.to_datetime(tmp_e["DATA_EMISSÃO"], errors="coerce")
             tmp_e = tmp_e[tmp_e["DATA_EMISSÃO"].notna()]
             if "CTRC_EMITIDO" in tmp_e.columns:
-                emis_ts = tmp_e.groupby(tmp_e["DATA_EMISSÃO"].dt.date)["CTRC_EMITIDO"].sum().sort_index()
+                emis_ts_brutas = tmp_e.groupby(tmp_e["DATA_EMISSÃO"].dt.date)["CTRC_EMITIDO"].sum().sort_index()
             else:
-                emis_ts = tmp_e.groupby(tmp_e["DATA_EMISSÃO"].dt.date).size().sort_index()
+                emis_ts_brutas = tmp_e.groupby(tmp_e["DATA_EMISSÃO"].dt.date).size().sort_index()
 
         # Cancelamentos por dia
         if isinstance(cancelamentos_tab1, pd.DataFrame) and (not cancelamentos_tab1.empty):
@@ -4975,23 +5040,24 @@ def main():
                 canc_ts = tmp_c.groupby(tmp_c[date_c].dt.date).size().sort_index()
 
         # Reindexa para manter sequência contínua (melhor visual do sparkline)
-        if (not emis_ts.empty) or (not canc_ts.empty):
-            min_d = emis_ts.index.min() if not emis_ts.empty else canc_ts.index.min()
-            max_d = emis_ts.index.max() if not emis_ts.empty else canc_ts.index.max()
+        if (not emis_ts_brutas.empty) or (not canc_ts.empty):
+            min_d = emis_ts_brutas.index.min() if not emis_ts_brutas.empty else canc_ts.index.min()
+            max_d = emis_ts_brutas.index.max() if not emis_ts_brutas.empty else canc_ts.index.max()
             if (not canc_ts.empty) and canc_ts.index.min() < min_d:
                 min_d = canc_ts.index.min()
             if (not canc_ts.empty) and canc_ts.index.max() > max_d:
                 max_d = canc_ts.index.max()
 
             idx = pd.date_range(min_d, max_d, freq="D").date
-            emis_ts = emis_ts.reindex(idx, fill_value=0)
+            emis_ts_brutas = emis_ts_brutas.reindex(idx, fill_value=0)
             canc_ts = canc_ts.reindex(idx, fill_value=0)
+            emis_ts = _series_liquida(emis_ts_brutas, canc_ts)
         else:
             idx = []
 
         # Taxa diária (%) e Gap diário (pp)
         if len(idx) > 0:
-            denom = emis_ts.replace(0, np.nan)
+            denom = emis_ts_brutas.replace(0, np.nan)
             rate_ts = (canc_ts / denom * 100.0).fillna(0.0)
             gap_ts = rate_ts - float(meta_taxa)
         else:
@@ -5072,14 +5138,17 @@ def main():
                 c_cur = pd.DataFrame()
                 c_prev = pd.DataFrame()
 
-        em_cur = calcular_emissoes_brutas(e_cur)
-        em_prev = calcular_emissoes_brutas(e_prev)
+        em_cur_bruto = calcular_emissoes_brutas(e_cur)
+        em_prev_bruto = calcular_emissoes_brutas(e_prev)
 
-        ca_cur = len(c_cur) if isinstance(c_cur, pd.DataFrame) else 0
-        ca_prev = len(c_prev) if isinstance(c_prev, pd.DataFrame) else 0
+        ca_cur = calcular_total_cancelamentos(c_cur) if isinstance(c_cur, pd.DataFrame) else 0
+        ca_prev = calcular_total_cancelamentos(c_prev) if isinstance(c_prev, pd.DataFrame) else 0
 
-        tx_cur = (ca_cur / em_cur * 100.0) if em_cur > 0 else 0.0
-        tx_prev = (ca_prev / em_prev * 100.0) if em_prev > 0 else 0.0
+        em_cur = max(int(em_cur_bruto) - int(ca_cur), 0)
+        em_prev = max(int(em_prev_bruto) - int(ca_prev), 0)
+
+        tx_cur = (ca_cur / em_cur_bruto * 100.0) if em_cur_bruto > 0 else 0.0
+        tx_prev = (ca_prev / em_prev_bruto * 100.0) if em_prev_bruto > 0 else 0.0
 
         gp_cur = tx_cur - float(meta_taxa)
         gp_prev = tx_prev - float(meta_taxa)
@@ -6749,16 +6818,17 @@ def main():
 
                         if x is not None:
                             df_ec = pd.DataFrame({"Mes": x})
-                            df_ec["Emissões"] = df_ec["Mes"].map(emis_m).fillna(0).astype(int)
+                            df_ec["Emissões Brutas"] = df_ec["Mes"].map(emis_m).fillna(0).astype(int)
                             df_ec["Cancelamentos"] = df_ec["Mes"].map(canc_m).fillna(0).astype(int)
+                            df_ec["Emissões"] = (df_ec["Emissões Brutas"] - df_ec["Cancelamentos"]).clip(lower=0).astype(int)
                             df_ec["Taxa %"] = np.where(
-                                df_ec["Emissões"] > 0,
-                                (df_ec["Cancelamentos"] / df_ec["Emissões"]) * 100.0,
+                                df_ec["Emissões Brutas"] > 0,
+                                (df_ec["Cancelamentos"] / df_ec["Emissões Brutas"]) * 100.0,
                                 0.0
                             )
 
                             META_RATE_CANCEL = 0.0075  # 0,75%
-                            df_ec["Meta Cancelamentos"] = (df_ec["Emissões"] * META_RATE_CANCEL).round().astype(int)
+                            df_ec["Meta Cancelamentos"] = (df_ec["Emissões Brutas"] * META_RATE_CANCEL).round().astype(int)
 
                             # Labels PT-BR (Jan, Fev, Mar...)
                             _mes_pt = {1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
@@ -7110,11 +7180,12 @@ def main():
                         else:
                             x = pd.date_range(pd.to_datetime(min_dt), pd.to_datetime(max_dt), freq="D")
                             df_ec = pd.DataFrame({"Data": x})
-                            df_ec["Emissões"] = df_ec["Data"].dt.date.map(emis_d).fillna(0).astype(int)
+                            df_ec["Emissões Brutas"] = df_ec["Data"].dt.date.map(emis_d).fillna(0).astype(int)
                             df_ec["Cancelamentos"] = df_ec["Data"].dt.date.map(canc_d).fillna(0).astype(int)
+                            df_ec["Emissões"] = (df_ec["Emissões Brutas"] - df_ec["Cancelamentos"]).clip(lower=0).astype(int)
                             df_ec["Taxa %"] = np.where(
-                                df_ec["Emissões"] > 0,
-                                (df_ec["Cancelamentos"] / df_ec["Emissões"]) * 100.0,
+                                df_ec["Emissões Brutas"] > 0,
+                                (df_ec["Cancelamentos"] / df_ec["Emissões Brutas"]) * 100.0,
                                 0.0
                             )
 
@@ -8012,8 +8083,8 @@ def main():
         df_tab3 = df_filtrado.copy()
         cancelamentos_tab3 = cancelamentos_filtrado.copy()
 
-        # ✅ Emissões brutas (total do CSV no recorte)
-        total_emissoes_periodo = calcular_emissoes_brutas(df_tab3)
+        # ✅ Emissões exibidas = líquidas (brutas - cancelamentos no recorte)
+        total_emissoes_periodo = calcular_emissoes_liquidas(df_tab3, cancelamentos_tab3)
         total_emissoes_periodo = max(total_emissoes_periodo, 0)
 
         # ✅ Base bruta para Vol/Peso/Frete/Remetente (mesmos filtros do dashboard)
@@ -8087,20 +8158,17 @@ def main():
         _peso_total = float(_to_num_br(df_raw_prod[peso_col]).sum()) if (not df_raw_prod.empty and peso_col and peso_col in df_raw_prod.columns) else 0.0
         _frete_total = float(_to_num_br(df_raw_prod[frete_col]).sum()) if (not df_raw_prod.empty and frete_col and frete_col in df_raw_prod.columns) else 0.0
 
-        _n_ctrc = 0
+        _n_ctrc_bruto = 0
         try:
             if (not df_raw_prod.empty) and ("ctrc_raw_col" in locals()) and (ctrc_raw_col is not None) and (ctrc_raw_col in df_raw_prod.columns):
                 _ctrc_norm = df_raw_prod[ctrc_raw_col].fillna("").astype(str).str.strip()
-                _n_ctrc = int(_ctrc_norm.replace({"": np.nan, "nan": np.nan, "None": np.nan}).nunique(dropna=True))
+                _n_ctrc_bruto = int(_ctrc_norm.replace({"": np.nan, "nan": np.nan, "None": np.nan}).nunique(dropna=True))
             else:
-                _n_ctrc = int(len(df_raw_prod))
+                _n_ctrc_bruto = int(len(df_raw_prod))
         except Exception:
-            _n_ctrc = int(len(df_raw_prod)) if not df_raw_prod.empty else 0
+            _n_ctrc_bruto = int(len(df_raw_prod)) if not df_raw_prod.empty else 0
 
-        # ✅ Emissões da aba Produtividade também devem seguir o total BRUTO do CSV
-        total_emissoes_periodo = int(_n_ctrc)
-
-        denom = max(_n_ctrc, 1)
+        denom = max(total_emissoes_periodo, 1)
         _vol_per_ctrc = (_vol_total / denom) if denom else 0.0
         _peso_per_ctrc = (_peso_total / denom) if denom else 0.0
         _ticket = (_frete_total / denom) if denom else 0.0
@@ -8133,7 +8201,7 @@ def main():
                     df_tot = df_tot[df_tot["EXPEDIÇÃO"] == expedicao_selecionada]
                     canc_tot = canc_tot[canc_tot["EXPEDIÇÃO"] == expedicao_selecionada]
 
-                _tot_real = max(calcular_emissoes_brutas(df_tot), 0)
+                _tot_real = max(calcular_emissoes_liquidas(df_tot, canc_tot), 0)
                 _pct = (total_emissoes_periodo / _tot_real * 100.0) if _tot_real > 0 else 0.0
                 _pct_total_txt = (f"📊 {str(f'{_pct:.1f}').replace('.', ',')}% do total")
             else:
@@ -8232,7 +8300,9 @@ def main():
             except Exception:
                 total_cancel_prod = 0
 
-            taxa_cancel_prod = (float(total_cancel_prod) / float(total_emissoes_periodo) * 100.0) if float(total_emissoes_periodo) > 0 else 0.0
+            total_emissoes_periodo = max(int(_n_ctrc_bruto) - int(total_cancel_prod), 0)
+            denom = max(total_emissoes_periodo, 1)
+            taxa_cancel_prod = (float(total_cancel_prod) / float(_n_ctrc_bruto) * 100.0) if float(_n_ctrc_bruto) > 0 else 0.0
 
             def _get_tipo_col_prod(df_in: pd.DataFrame):
                 if df_in is None or df_in.empty:
@@ -8388,7 +8458,7 @@ def main():
                     format_money_br(_frete_total),
                     "FRETE R$",
                     "kpi-green",
-                    delta_text=f"🧾 {format_number(_n_ctrc)} CTRCs",
+                    delta_text=f"🧾 {format_number(total_emissoes_periodo)} CTRCs",
                     footer_text="",
                     height_px=_CARD_H,
                 )
@@ -21388,7 +21458,7 @@ def main():
             else:
                 # total (EMISSÕES REAIS = Bruto - Cancelados no recorte)
                 # Obs: base (df_em) e df_canc já estão filtrados pelo mesmo período/filtros globais.
-                total_em = int(calcular_emissoes_brutas(base))
+                total_em = int(calcular_emissoes_liquidas(base, df_canc))
 
                 # usuários / placas
                 usuarios_un = int(base[col_user].nunique()) if col_user else 0
@@ -21402,9 +21472,19 @@ def main():
                     _tmp = base.copy()
                     _tmp["_DT_"] = _dt.dt.date
                     if col_qtd:
-                        serie_dia = _tmp.groupby("_DT_")[col_qtd].sum()
+                        serie_dia_bruta = _tmp.groupby("_DT_")[col_qtd].sum()
                     else:
-                        serie_dia = _tmp.groupby("_DT_").size()
+                        serie_dia_bruta = _tmp.groupby("_DT_").size()
+
+                    _canc_dia = pd.Series(dtype=float)
+                    col_date_c = "DATA_CANCELADO" if "DATA_CANCELADO" in df_canc.columns else ("Data do Cancelamento" if "Data do Cancelamento" in df_canc.columns else None)
+                    if col_date_c:
+                        _tmp_c = df_canc.copy()
+                        _tmp_c["_DT_"] = pd.to_datetime(_tmp_c[col_date_c], errors="coerce").dt.date
+                        _tmp_c = _tmp_c[_tmp_c["_DT_"].notna()]
+                        _canc_dia = _tmp_c.groupby("_DT_").size()
+
+                    serie_dia = _series_liquida(serie_dia_bruta, _canc_dia)
                     if not serie_dia.empty:
                         pico_val = int(serie_dia.max())
                         pico_data = serie_dia.idxmax()
@@ -21416,10 +21496,7 @@ def main():
                 top_val = 0
                 top_pct = 0.0
                 if col_user:
-                    if col_qtd:
-                        grp_u = base.groupby(col_user)[col_qtd].sum().sort_values(ascending=False)
-                    else:
-                        grp_u = base.groupby(col_user).size().sort_values(ascending=False)
+                    grp_u = _group_liquido_por_coluna(base, df_canc, col_user, "USUARIO" if "USUARIO" in df_canc.columns else col_user)
                     if not grp_u.empty:
                         top_user = str(grp_u.index[0])
                         top_val = int(grp_u.iloc[0])
@@ -21456,10 +21533,7 @@ def main():
                 with c2:
                     st.markdown("#### 🚚 Top placas (Emissões)")
                     if col_plate:
-                        if col_qtd:
-                            grp_p = base.groupby(col_plate)[col_qtd].sum().sort_values(ascending=False)
-                        else:
-                            grp_p = base.groupby(col_plate).size().sort_values(ascending=False)
+                        grp_p = _group_liquido_por_coluna(base, df_canc, col_plate, "PLACA_COLETA" if "PLACA_COLETA" in df_canc.columns else col_plate)
                         df_p = grp_p.reset_index()
                         df_p.columns = ["Placa", "Emissões"]
                         df_p["Emissões"] = df_p["Emissões"].astype(int)
