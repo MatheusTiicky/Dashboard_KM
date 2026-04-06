@@ -21372,44 +21372,6 @@ def main():
                 unsafe_allow_html=True,
             )
 
-        def _render_resumo_tabela(df_in: pd.DataFrame, titulo: str, key_prefix: str, busca_hint: str):
-            st.markdown(f"#### {titulo}")
-
-            if df_in is None or df_in.empty:
-                st.info("Nenhum registro encontrado para esta tabela.")
-                return
-
-            ctl1, ctl2 = st.columns([2, 1])
-            busca = ctl1.text_input(
-                f"🔎 Buscar ({busca_hint})",
-                key=f"{key_prefix}_busca",
-            )
-            limite = ctl2.selectbox(
-                "Mostrar",
-                [50, 100, 200, "Tudo"],
-                index=0,
-                key=f"{key_prefix}_limite",
-            )
-
-            df_view = df_in.copy()
-
-            if busca:
-                busca_up = str(busca).strip().upper()
-                if busca_up:
-                    mask = pd.Series(False, index=df_view.index)
-                    for c in df_view.columns:
-                        try:
-                            mask = mask | df_view[c].astype(str).str.upper().str.contains(busca_up, na=False)
-                        except Exception:
-                            continue
-                    df_view = df_view[mask]
-
-            if limite != "Tudo":
-                df_view = df_view.head(int(limite))
-
-            st.caption(f"Registros: {len(df_view)}")
-            st.dataframe(df_view, use_container_width=True, hide_index=True, height=420)
-
         # -----------------------
         # EMISSÕES — RESUMO
         # -----------------------
@@ -21476,22 +21438,23 @@ def main():
                 if top_user:
                     st.caption(f"🏆 **Top emissor:** {top_user} • **{_fmt_int(top_val)}** emissões • **{_fmt_pct(top_pct)}** do total")
 
-                # Tabelas rápidas (com busca e limite, no estilo da auditoria)
+                # Tabelas rápidas (sem “auditoria”)
                 c1, c2 = st.columns(2, gap="large")
 
                 with c1:
+                    st.markdown("#### 👥 Top usuários (Emissões)")
                     if col_user:
                         df_u = grp_u.reset_index()
                         df_u.columns = ["Usuário", "Emissões"]
                         df_u["%"] = (df_u["Emissões"] / total_em * 100).replace([np.inf, -np.inf], 0).fillna(0)
                         df_u["Emissões"] = df_u["Emissões"].astype(int)
                         df_u["%"] = df_u["%"].apply(lambda x: str(f"{x:.1f}%").replace(".", ","))
-                        _render_resumo_tabela(df_u, "👥 Top usuários (Emissões)", "resumo_emissoes_usuarios", "usuário / emissões / %")
+                        st.dataframe(df_u.head(15), use_container_width=True, hide_index=True)
                     else:
-                        st.markdown("#### 👥 Top usuários (Emissões)")
                         st.info("Coluna de usuário não encontrada no dataframe de emissões.")
 
                 with c2:
+                    st.markdown("#### 🚚 Top placas (Emissões)")
                     if col_plate:
                         if col_qtd:
                             grp_p = base.groupby(col_plate)[col_qtd].sum().sort_values(ascending=False)
@@ -21500,9 +21463,8 @@ def main():
                         df_p = grp_p.reset_index()
                         df_p.columns = ["Placa", "Emissões"]
                         df_p["Emissões"] = df_p["Emissões"].astype(int)
-                        _render_resumo_tabela(df_p, "🚚 Top placas (Emissões)", "resumo_emissoes_placas", "placa / emissões")
+                        st.dataframe(df_p.head(15), use_container_width=True, hide_index=True)
                     else:
-                        st.markdown("#### 🚚 Top placas (Emissões)")
                         st.info("Coluna de placa não encontrada no dataframe de emissões.")
 
         # -----------------------
@@ -21558,6 +21520,7 @@ def main():
                 c1, c2 = st.columns(2, gap="large")
 
                 with c1:
+                    st.markdown("#### 👥 Top usuários (Cancelamentos)")
                     if col_user:
                         grp_u = base.groupby(col_user).size().sort_values(ascending=False)
                         df_u = grp_u.reset_index()
@@ -21565,19 +21528,18 @@ def main():
                         df_u["%"] = (df_u["Cancelamentos"] / total_c * 100).replace([np.inf, -np.inf], 0).fillna(0)
                         df_u["Cancelamentos"] = df_u["Cancelamentos"].astype(int)
                         df_u["%"] = df_u["%"].apply(lambda x: str(f"{x:.1f}%").replace(".", ","))
-                        _render_resumo_tabela(df_u, "👥 Top usuários (Cancelamentos)", "resumo_cancelamentos_usuarios", "usuário / cancelamentos / %")
+                        st.dataframe(df_u.head(15), use_container_width=True, hide_index=True)
                     else:
-                        st.markdown("#### 👥 Top usuários (Cancelamentos)")
                         st.info("Coluna de usuário não encontrada no dataframe de cancelamentos.")
 
                 with c2:
+                    st.markdown("#### 🏷️ Top motivos (Cancelamentos)")
                     if col_mot:
                         df_m = grp_m.reset_index()
                         df_m.columns = ["Motivo", "Cancelamentos"]
                         df_m["Cancelamentos"] = df_m["Cancelamentos"].astype(int)
-                        _render_resumo_tabela(df_m, "🏷️ Top motivos (Cancelamentos)", "resumo_cancelamentos_motivos", "motivo / cancelamentos")
+                        st.dataframe(df_m.head(15), use_container_width=True, hide_index=True)
                     else:
-                        st.markdown("#### 🏷️ Top motivos (Cancelamentos)")
                         st.info("Coluna de motivo não encontrada no dataframe de cancelamentos.")
 
                                         
