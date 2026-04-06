@@ -5958,9 +5958,9 @@ def main():
                         .cmp-body{display:grid;grid-template-columns:.94fr 1.28fr .94fr;gap:14px;position:relative;z-index:1;align-items:start;}
                         @media (max-width:1200px){.cmp-body{grid-template-columns:1fr;}.cmp-sub{white-space:normal;}}
                         .cmp-col{padding:12px;border-radius:18px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);}
-                        .cmp-date{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
-                        .cmp-date .d{font-size:.92rem;font-weight:950;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-                        .cmp-date .tag{font-size:.70rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.72);font-weight:900;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.12);white-space:nowrap;}
+                        .cmp-date{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:10px;}
+                        .cmp-date .d{grid-column:2;font-size:.92rem;font-weight:950;color:rgba(255,255,255,.92);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;}
+                        .cmp-date .tag{grid-column:3;justify-self:end;font-size:.70rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.72);font-weight:900;padding:6px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.12);white-space:nowrap;}
                         .cmp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
                         .cmp-card{
                             padding:11px 12px 10px;
@@ -6043,6 +6043,50 @@ def main():
                             margin:0 0 6px 0;
                             line-height:1.25;
                             text-align:center;
+                        }
+
+                        .cmp-mid-period{
+                            display:flex;
+                            flex-direction:column;
+                            align-items:center;
+                            justify-content:center;
+                            gap:10px;
+                            margin:0 0 10px 0;
+                            text-align:center;
+                        }
+
+                        .cmp-mid-period-block{
+                            display:flex;
+                            flex-direction:column;
+                            align-items:center;
+                            justify-content:center;
+                            gap:4px;
+                        }
+
+                        .cmp-mid-period-block .date{
+                            font-size:1.08rem;
+                            font-weight:950;
+                            letter-spacing:.14em;
+                            text-transform:uppercase;
+                            color:rgba(255,255,255,.94);
+                            line-height:1.15;
+                        }
+
+                        .cmp-mid-period-block .dow{
+                            font-size:.90rem;
+                            font-weight:900;
+                            letter-spacing:.16em;
+                            text-transform:uppercase;
+                            color:rgba(255,255,255,.78);
+                            line-height:1.15;
+                        }
+
+                        .cmp-mid-period-arrow{
+                            font-size:1.55rem;
+                            font-weight:1000;
+                            color:rgba(255,255,255,.90);
+                            line-height:1;
+                            text-shadow:0 0 18px rgba(255,255,255,.18);
                         }
 
                         .cmp-mid-sub{
@@ -6277,6 +6321,36 @@ def main():
                         cls = _chip_cls(diff_num, good_when)
                         return f"""<div class='cmp-diffline {cls}'><div class='t'>{_esc_html(title)}</div><div class='v'>{_esc_html(txt)}</div></div>"""
 
+                    def _split_single_day_label(label: str):
+                        try:
+                            parts = [p.strip() for p in str(label).split("•", 1)]
+                        except Exception:
+                            return None, None
+                        if len(parts) != 2:
+                            return None, None
+                        if not re.match(r"^\d{2}/\d{2}/\d{4}$", parts[0]):
+                            return None, None
+                        return parts[0], parts[1]
+
+                    def _build_center_period_html(label_x, label_y):
+                        dx, wx = _split_single_day_label(label_x)
+                        dy, wy = _split_single_day_label(label_y)
+
+                        if dx and wx and dy and wy:
+                            return f"""<div class='cmp-mid-period'>
+                                <div class='cmp-mid-period-block'>
+                                    <span class='date'>{_esc_html(dx)}</span>
+                                    <span class='dow'>{_esc_html(wx)}</span>
+                                </div>
+                                <div class='cmp-mid-period-arrow'>→</div>
+                                <div class='cmp-mid-period-block'>
+                                    <span class='date'>{_esc_html(dy)}</span>
+                                    <span class='dow'>{_esc_html(wy)}</span>
+                                </div>
+                            </div>"""
+
+                        return f"<div class='cmp-mid-title'>{_esc_html(label_x)} → {_esc_html(label_y)}</div>"
+
                     def _build_center(X, Y, label_x, label_y, derived_html=""):
                         def _safe_ratio(num, den):
                             try:
@@ -6360,9 +6434,11 @@ def main():
                                     _pill_pct(Y["peso"], X["peso"]),
                                     dpeso, "up")
 
+                        _period_html = _build_center_period_html(label_x, label_y)
+
                         return f"""<div class='cmp-mid'>
                             <div class='cmp-mid-kicker'><span>Painel de Variação</span></div>
-                            <div class='cmp-mid-title'> ({_esc_html(label_x)} → {_esc_html(label_y)})</div>
+                            {_period_html}
 
                             <div class='cmp-div'><span>Indicadores Operacionais</span></div>
                             <div class='cmp-diffgrid'>{c_em}{c_cancel}</div>
@@ -6483,8 +6559,6 @@ def main():
                                 {right_html}
                             </div>
                         </div>"""), unsafe_allow_html=True)
-                        
-                    st.markdown("")
 
                     # ---------- Extra opcional: emissões por hora (Dia A vs Dia B) ----------
                     with st.expander("⏱ Emissões por hora (Dia A vs Dia B)", expanded=False):
