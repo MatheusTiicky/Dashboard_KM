@@ -3575,53 +3575,12 @@ def main():
     # =================================================================
 
     # ==============================
-    # 📆 Mês (expander)
+    # 📆 Mês (removido da sidebar)
     # ==============================
-    with st.sidebar.expander("📆 Mês", expanded=True):
-        meses_ordem = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO',
-                    'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO']
-
-        meses_disponiveis = [mes for mes in meses_ordem if mes in emissoes_df['MÊS'].unique()]
-
-        # 🔥 Descobre automaticamente o mês mais recente pelos dados
-        if not emissoes_df.empty:
-            mes_recente_num = emissoes_df["DATA_EMISSÃO"].max().month
-            mes_recente_nome = meses_ordem[mes_recente_num - 1]
-
-            if mes_recente_nome in meses_disponiveis:
-                default_idx_mes = meses_disponiveis.index(mes_recente_nome) + 1
-            else:
-                default_idx_mes = 0
-        else:
-            default_idx_mes = 0
-
-        mes_opts = ['Todos'] + meses_disponiveis
-
-        # ✅ Se o período está em "Mês Completo" ou "Dia Específico", mantém o filtro de Mês sincronizado
-        try:
-            modo_p = st.session_state.get("period_mode")
-            if modo_p in ["Mês Completo", "Dia Específico"]:
-                raw_rng = st.session_state.get("date_range_final")
-                sd = raw_rng[0] if isinstance(raw_rng, (tuple, list)) and len(raw_rng) == 2 else raw_rng
-                if isinstance(sd, date):
-                    mes_auto = meses_ordem[sd.month - 1]
-                    st.session_state["filtro_mes"] = mes_auto
-        except Exception:
-            pass
-
-        # ✅ garante valor válido no session_state
-        if st.session_state.get("filtro_mes") not in mes_opts:
-            try:
-                st.session_state["filtro_mes"] = mes_opts[default_idx_mes] if default_idx_mes < len(mes_opts) else "Todos"
-            except Exception:
-                st.session_state["filtro_mes"] = "Todos"
-
-        mes_selecionado = st.selectbox(
-            "Selecione o mês:",
-            options=mes_opts,
-            key="filtro_mes",
-            disabled=st.session_state.get("period_mode") in ["Mês Completo", "Dia Específico", "Ano Completo"]
-        )
+    # Compatibilidade: mantém a variável usada no restante do app,
+    # mas sem exibir o seletor de mês na barra lateral.
+    mes_selecionado = "Todos"
+    st.session_state["filtro_mes"] = "Todos"
 
     # ==============================
     # 🚛 Expedição (expander)
