@@ -6484,8 +6484,6 @@ def main():
                             </div>
                         </div>"""), unsafe_allow_html=True)
 
-                    st.markdown('<hr style="border: 1px solid #333; margin: 20px 0;">', unsafe_allow_html=True)
-
                     # ---------- Extra opcional: emissões por hora (Dia A vs Dia B) ----------
                     with st.expander("⏱ Emissões por hora (Dia A vs Dia B)", expanded=False):
                         try:
