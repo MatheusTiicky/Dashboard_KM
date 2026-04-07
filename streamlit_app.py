@@ -3160,13 +3160,30 @@ def load_data(_fingerprint: tuple):
 @st.cache_data(show_spinner="📄 Em instantes, dashborad abrirá...")
 def load_raw_data():
     """
-    Carrega os dados BRUTOS (sem agrupar), para uso na aba de dados detalhados.
-    Reaproveita a mesma leitura.
+    Carrega a base detalhada já LÍQUIDA, removendo CTRCs cancelados.
+    Assim, frete, volume, peso e cubagem passam a refletir a operação final
+    efetivamente válida na dashboard.
     """
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         fingerprint = _get_fingerprint(base_dir)
         df_raw = load_base_data(fingerprint).copy()
+
+        if isinstance(df_raw, pd.DataFrame) and (not df_raw.empty) and ("Data do Cancelamento" in df_raw.columns):
+            _c = df_raw["Data do Cancelamento"]
+            try:
+                _mask_na = _c.isna()
+            except Exception:
+                _mask_na = pd.Series(False, index=df_raw.index)
+
+            _mask_blank = (
+                _c.astype(str)
+                .str.strip()
+                .str.upper()
+                .isin(["", "NAN", "NONE", "NAT"])
+            )
+            df_raw = df_raw[_mask_na | _mask_blank].copy()
+
         return df_raw
     except Exception as e:
         st.error(f"Erro ao carregar os dados brutos: {e}")
@@ -3270,10 +3287,10 @@ def main():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     fingerprint = _get_fingerprint(base_dir)
     emissoes_df, cancelamentos_df, emissoes_novas_df = load_data(fingerprint)
-    df_raw_all = load_raw_data()  # base BRUTA (para Volume/Peso/valores operacionais)
+    df_raw_all = load_raw_data()  # base detalhada já líquida (sem CTRCs cancelados)
 
-    # ✅ Base bruta COMPLETA (com cancelados) para manter Emissões / Volumes / Peso / Frete
-    # exatamente iguais ao CSV bruto exibido no dashboard.
+    # ✅ Base detalhada LÍQUIDA para que Emissões / Volumes / Peso / Frete / Cubagem
+    # já nasçam descontados dos cancelamentos em toda a dashboard.
     df_raw_emitidos = df_raw_all.copy() if isinstance(df_raw_all, pd.DataFrame) else pd.DataFrame()
 
 
@@ -4967,17 +4984,13 @@ def main():
         total_peso  = float(_to_num_br(base_ops_df[peso_col]).sum()) if (peso_col and not base_ops_df.empty) else 0.0
         total_frete = float(_to_num_br(base_ops_df[frete_col]).sum()) if (frete_col and not base_ops_df.empty) else 0.0
 
-        # ✅ Emissões exibidas no dashboard = emissões líquidas (brutas - cancelamentos)
+        # ✅ Emissões líquidas do recorte atual
         try:
-            if (not base_ops_df.empty) and (ctrc_col := (_find_col_contains(base_ops_df, "serie", "numero", "ctrc") or _find_col_contains(base_ops_df, "ctrc"))) and (ctrc_col in base_ops_df.columns):
-                _ctrc_norm = base_ops_df[ctrc_col].fillna("").astype(str).str.strip()
-                total_emissoes_brutas = int(_ctrc_norm.replace({"": np.nan, "nan": np.nan, "None": np.nan}).nunique(dropna=True))
-            else:
-                total_emissoes_brutas = int(len(base_ops_df)) if isinstance(base_ops_df, pd.DataFrame) else int(total_emissoes_brutas)
-        except Exception:
             total_emissoes_brutas = int(calcular_emissoes_brutas(df_tab1))
+        except Exception:
+            total_emissoes_brutas = 0
 
-        total_emissoes = max(int(total_emissoes_brutas) - int(total_cancelamentos), 0)
+        total_emissoes = max(int(calcular_emissoes_liquidas(df_tab1, cancelamentos_tab1)), 0)
         denom_taxa = total_emissoes_brutas
         taxa_cancelamento = (total_cancelamentos / denom_taxa * 100) if denom_taxa > 0 else 0
 
@@ -8127,8 +8140,8 @@ def main():
             if usuario_selecionado != "Todos":
                 df_raw_prod = df_raw_prod[df_raw_prod["USUÁRIO"].astype(str).str.strip() == str(usuario_selecionado).strip()]
 
-            # ✅ Mantém a base BRUTA completa (inclusive CTRCs cancelados),
-            # para que Emissões / Volumes / Peso / Frete sigam exatamente o total do CSV.
+            # ✅ Base detalhada já vem LÍQUIDA (cancelados removidos),
+            # para que Emissões / Volumes / Peso / Frete / Cubagem reflitam o saldo final.
             ctrc_raw_col = _find_col_contains(df_raw_prod, "serie", "numero", "ctrc") or _find_col_contains(df_raw_prod, "ctrc")
 
         # Colunas numéricas (robustas)
@@ -8300,9 +8313,10 @@ def main():
             except Exception:
                 total_cancel_prod = 0
 
-            total_emissoes_periodo = max(int(_n_ctrc_bruto) - int(total_cancel_prod), 0)
+            total_emissoes_periodo = max(int(_n_ctrc_bruto), 0)
             denom = max(total_emissoes_periodo, 1)
-            taxa_cancel_prod = (float(total_cancel_prod) / float(_n_ctrc_bruto) * 100.0) if float(_n_ctrc_bruto) > 0 else 0.0
+            _base_taxa_prod = float(total_emissoes_periodo) + float(total_cancel_prod)
+            taxa_cancel_prod = (float(total_cancel_prod) / _base_taxa_prod * 100.0) if _base_taxa_prod > 0 else 0.0
 
             def _get_tipo_col_prod(df_in: pd.DataFrame):
                 if df_in is None or df_in.empty:
