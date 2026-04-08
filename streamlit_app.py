@@ -5615,7 +5615,7 @@ def main():
             st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
             o3, o4 = st.columns(2, gap="small")
             kpi_spark(
-                o3, "🧮", format_float_br(vol_por_em, decimals=2), "Vol / Emissão", "kpi-blue kpi-side",
+                o3, "🧮", format_float_br(vol_por_em, decimals=0), "Vol / Emissão", "kpi-blue kpi-side",
                 series_vals=[vol_por_em_cur, vol_por_em_prev if vol_por_em_prev else vol_por_em_cur], delta=d_vol_por_em,
                 delta_kind="pct", good_when="up", delta_label=delta_label_pct, bottom_items=[badge_vol_por_em], height_px=156
             )
@@ -5768,10 +5768,160 @@ def main():
                 if (_cur_sd is None) or (_cur_ed is None):
                     st.info("Selecione um período em 🗓️ Período de Emissão para usar o comparador.")
                 elif _pmode == "Dia Específico":
-                    _day_b = _cur_sd
+                    _day_default_atual = _cur_sd
                     # procura o dia anterior com dados (no mesmo recorte de filtros de Usuário/Expedição)
-                    _prevs = [d for d in _all_days if d < _day_b and d.weekday() < 5]
-                    _day_a = _prevs[-1] if _prevs else (_day_b - timedelta(days=1))
+                    _prevs = [d for d in _all_days if d < _day_default_atual and d.weekday() < 5]
+                    _day_default_base = _prevs[-1] if _prevs else (_day_default_atual - timedelta(days=1))
+
+                    if _all_days:
+                        _min_cmp_day, _max_cmp_day = _all_days[0], _all_days[-1]
+                    else:
+                        _min_cmp_day, _max_cmp_day = _day_default_base, _day_default_atual
+
+                    _kd_base = "cmp_resumo_base_day"
+                    _kd_atual = "cmp_resumo_atual_day"
+
+                    def _clamp_cmp_day(_d0):
+                        try:
+                            _d1 = pd.to_datetime(_d0).date()
+                        except Exception:
+                            _d1 = _day_default_atual
+                        if _d1 < _min_cmp_day:
+                            _d1 = _min_cmp_day
+                        if _d1 > _max_cmp_day:
+                            _d1 = _max_cmp_day
+                        return _d1
+
+                    if st.session_state.get(_kd_base) is None:
+                        st.session_state[_kd_base] = _clamp_cmp_day(_day_default_base)
+                    else:
+                        st.session_state[_kd_base] = _clamp_cmp_day(st.session_state.get(_kd_base))
+
+                    if st.session_state.get(_kd_atual) is None:
+                        st.session_state[_kd_atual] = _clamp_cmp_day(_day_default_atual)
+                    else:
+                        st.session_state[_kd_atual] = _clamp_cmp_day(st.session_state.get(_kd_atual))
+
+                    _dias_cmp_abrev = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"]
+
+                    st.markdown(_html_block("""
+                    <style>
+                        .cmp-filter-anchor,.cmp-note-anchor{display:block;width:0;height:0;opacity:0;pointer-events:none;}
+                        div[data-testid="column"]:has(.cmp-filter-anchor-base),
+                        div[data-testid="column"]:has(.cmp-filter-anchor-atual){
+                            background: linear-gradient(180deg, rgba(15,23,42,.78), rgba(2,6,23,.88));
+                            border: 1px solid rgba(96,165,250,.14);
+                            border-radius: 22px;
+                            padding: 14px 14px 10px 14px;
+                            box-shadow: 0 18px 40px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.03);
+                            backdrop-filter: blur(6px);
+                        }
+                        div[data-testid="column"]:has(.cmp-note-anchor){
+                            background: linear-gradient(135deg, rgba(15,23,42,.72), rgba(30,41,59,.42));
+                            border: 1px solid rgba(96,165,250,.12);
+                            border-radius: 22px;
+                            padding: 16px 18px;
+                            box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+                            min-height: 100%;
+                        }
+                        .cmp-filter-title{margin:0;font-size:.73rem;font-weight:950;letter-spacing:.22em;text-transform:uppercase;color:rgba(148,163,184,.88);}
+                        .cmp-filter-sub{margin:4px 0 12px 0;font-size:.98rem;font-weight:800;color:rgba(255,255,255,.96);}
+                        .cmp-filter-mini-label{margin:0 0 6px 2px;font-size:.70rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(191,219,254,.84);}
+                        .cmp-filter-note{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;min-height:118px;}
+                        .cmp-filter-note-badge{display:inline-flex;align-items:center;justify-content:center;padding:7px 14px;border-radius:999px;
+                            border:1px solid rgba(96,165,250,.20);background:rgba(59,130,246,.10);color:rgba(219,234,254,.96);
+                            font-size:.72rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase;}
+                        .cmp-filter-note-text{margin:0;font-size:.98rem;font-weight:800;color:rgba(255,255,255,.95);}
+                        .cmp-filter-note-sub{margin:0;font-size:.80rem;color:rgba(191,219,254,.72);}
+                        .cmp-filter-dow{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:74px;min-height:72px;
+                            border-radius:18px;border:1px solid rgba(96,165,250,.18);background:linear-gradient(180deg, rgba(30,41,59,.72), rgba(15,23,42,.82));
+                            box-shadow: inset 0 1px 0 rgba(255,255,255,.03);}
+                        .cmp-filter-dow-pill{font-size:.86rem;font-weight:900;color:#ffffff;letter-spacing:.12em;text-transform:uppercase;}
+                        .cmp-filter-dow-sub{margin-top:4px;font-size:.68rem;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:rgba(191,219,254,.76);}
+                    </style>
+                    """), unsafe_allow_html=True)
+
+                    _cmp_col_base, _cmp_col_mid, _cmp_col_atual = st.columns([1.08, 0.82, 1.08])
+
+                    with _cmp_col_base:
+                        st.markdown(
+                            """
+                            <div class='cmp-filter-anchor cmp-filter-anchor-base'></div>
+                            <div class='cmp-filter-title'>Base</div>
+                            <div class='cmp-filter-sub'>Dia de referência</div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown("<div class='cmp-filter-mini-label'>Dia</div>", unsafe_allow_html=True)
+                        _base_fields_d, _base_fields_w = st.columns([4, 1])
+                        with _base_fields_d:
+                            _base_day_sel = st.date_input(
+                                "Dia BASE",
+                                key=_kd_base,
+                                min_value=_min_cmp_day,
+                                max_value=_max_cmp_day,
+                                format="DD/MM/YYYY",
+                                label_visibility="collapsed",
+                            )
+                        _base_day_sel = _clamp_cmp_day(_base_day_sel)
+                        with _base_fields_w:
+                            st.markdown(
+                                f"""
+                                <div class='cmp-filter-dow'>
+                                    <div class='cmp-filter-dow-pill'>{_dias_cmp_abrev[_base_day_sel.weekday()]}</div>
+                                    <div class='cmp-filter-dow-sub'>Dia</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                    with _cmp_col_mid:
+                        st.markdown(
+                            """
+                            <div class='cmp-note-anchor'></div>
+                            <div class='cmp-filter-note'>
+                                <div class='cmp-filter-note-badge'>Comparativo flexível</div>
+                                <p class='cmp-filter-note-text'>Dia x dia totalmente independente</p>
+                                <p class='cmp-filter-note-sub'>Escolha qualquer combinação entre BASE e ATUAL.</p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                    with _cmp_col_atual:
+                        st.markdown(
+                            """
+                            <div class='cmp-filter-anchor cmp-filter-anchor-atual'></div>
+                            <div class='cmp-filter-title'>Atual</div>
+                            <div class='cmp-filter-sub'>Dia para comparação</div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown("<div class='cmp-filter-mini-label'>Dia</div>", unsafe_allow_html=True)
+                        _atual_fields_d, _atual_fields_w = st.columns([4, 1])
+                        with _atual_fields_d:
+                            _atual_day_sel = st.date_input(
+                                "Dia ATUAL",
+                                key=_kd_atual,
+                                min_value=_min_cmp_day,
+                                max_value=_max_cmp_day,
+                                format="DD/MM/YYYY",
+                                label_visibility="collapsed",
+                            )
+                        _atual_day_sel = _clamp_cmp_day(_atual_day_sel)
+                        with _atual_fields_w:
+                            st.markdown(
+                                f"""
+                                <div class='cmp-filter-dow'>
+                                    <div class='cmp-filter-dow-pill'>{_dias_cmp_abrev[_atual_day_sel.weekday()]}</div>
+                                    <div class='cmp-filter-dow-sub'>Dia</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+
+                    _day_a = _base_day_sel
+                    _day_b = _atual_day_sel
                     _sd_a, _ed_a = _day_a, _day_a
                     _sd_b, _ed_b = _day_b, _day_b
                 elif _pmode == "Mês Completo":
@@ -6716,6 +6866,8 @@ def main():
                                 {right_html}
                             </div>
                         </div>"""), unsafe_allow_html=True)
+
+                    st.markdown("")
 
                     # ---------- Extra opcional: emissões por hora (Dia A vs Dia B) ----------
                     with st.expander("⏱ Emissões por hora (Dia A vs Dia B)", expanded=False):
@@ -8331,10 +8483,6 @@ def main():
         # ===== Cards (mesmo visual da 1ª imagem) =====
         _CARD_H = 118
 
-        # Helpers de exibição arredondada para os cards da Produtividade
-        _fmt_money_round = lambda v: f"R$ {format_number(v)}"
-        _fmt_pct_round = lambda v: f"{format_number(v)}%"
-
         # Cubagem total / por CTRC (para o novo card operacional)
         cub_col = _find_cubagem_col(df_raw_prod)
         _cub_total = float(_to_num_br(df_raw_prod[cub_col]).sum()) if (not df_raw_prod.empty and cub_col and cub_col in df_raw_prod.columns) else 0.0
@@ -8373,10 +8521,10 @@ def main():
             with op_bot1:
                 _kpi_card_usuario_exec(
                     "⚖️",
-                    format_weight_display(_peso_total, decimals=0),
+                    format_weight_display(_peso_total),
                     "PESO (KG)",
                     "kpi-purple",
-                    delta_text=f"⚖️ {format_kg_br(_peso_per_ctrc, decimals=0)} kg/CTRC",
+                    delta_text=f"⚖️ {format_kg_br(_peso_per_ctrc)} kg/CTRC",
                     footer_text="",
                     height_px=_CARD_H,
                 )
@@ -8384,10 +8532,10 @@ def main():
             with op_bot2:
                 _kpi_card_usuario_exec(
                     "📐",
-                    f"{format_float_br(_cub_total, decimals=0)} m³",
+                    f"{format_float_br(_cub_total, decimals=2)} m³",
                     "CUBAGEM",
                     "kpi-orange",
-                    delta_text=f"📐 {format_float_br(_cub_per_ctrc, decimals=0)} m³/CTRC",
+                    delta_text=f"📐 {format_float_br(_cub_per_ctrc, decimals=2)} m³/CTRC",
                     footer_text="",
                     height_px=_CARD_H,
                 )
@@ -8507,7 +8655,7 @@ def main():
                     format_number(total_cancel_prod),
                     "CANCELAMENTOS",
                     "kpi-red",
-                    delta_text=f"📊 Taxa: {_fmt_pct_round(taxa_cancel_prod)}",
+                    delta_text=(f"📊 Taxa: {taxa_cancel_prod:.2f}%").replace(".", ","),
                     footer_text="",
                     height_px=_CARD_H,
                 )
@@ -8540,7 +8688,7 @@ def main():
                     format_number(nr_invalidos_prod),
                     "NR INVÁLIDOS",
                     ("kpi-green" if int(nr_invalidos_prod) == 0 else "kpi-orange"),
-                    delta_text=f"⚠️ Taxa: {_fmt_pct_round(nr_invalidos_rate)}",
+                    delta_text=(f"⚠️ Taxa: {nr_invalidos_rate:.2f}%").replace(".", ","),
                     footer_text="",
                     height_px=_CARD_H,
                 )
@@ -8557,7 +8705,7 @@ def main():
             with mon_top1:
                 _kpi_card_usuario_exec(
                     "💰",
-                    _fmt_money_round(_frete_total),
+                    format_money_br(_frete_total),
                     "FRETE R$",
                     "kpi-green",
                     delta_text=f"🧾 {format_number(total_emissoes_periodo)} CTRCs",
@@ -8568,10 +8716,10 @@ def main():
             with mon_top2:
                 _kpi_card_usuario_exec(
                     "🧾",
-                    _fmt_money_round(_ticket),
+                    format_money_br(_ticket),
                     "FRETE / CTRC",
                     "kpi-blue",
-                    delta_text=f"💰 Base: {_fmt_money_round(_frete_total)}",
+                    delta_text=f"💰 Base: {format_money_br(_frete_total)}",
                     footer_text="",
                     height_px=_CARD_H,
                 )
@@ -8579,10 +8727,10 @@ def main():
             with mon_bot1:
                 _kpi_card_usuario_exec(
                     "⚖️",
-                    _fmt_money_round(_frete_per_kg),
+                    format_money_br(_frete_per_kg),
                     "FRETE / KG",
                     "kpi-teal",
-                    delta_text=f"⚖️ Base: {format_kg_br(_peso_total, decimals=0)} kg",
+                    delta_text=f"⚖️ Base: {format_kg_br(_peso_total)} kg",
                     footer_text="",
                     height_px=_CARD_H,
                 )
@@ -8590,7 +8738,7 @@ def main():
             with mon_bot2:
                 _kpi_card_usuario_exec(
                     "📦",
-                    _fmt_money_round(_frete_per_vol),
+                    format_money_br(_frete_per_vol),
                     "FRETE / VOLUME",
                     "kpi-indigo",
                     delta_text=f"📦 Base: {format_number(_vol_total)} volumes",
@@ -13393,7 +13541,7 @@ def main():
                                                             st.markdown("#### 💰 Indicadores Financeiros")
                                                             f1, f2 = st.columns(2)
                                                             with f1:
-                                                                kpi_card_moderno("💰", _fmt_money_round(_frete_total), "FRETE R$", "kpi-green", subline=_sub_frete, height_px=128, extra_class="kpi-clean kpi-plate")
+                                                                kpi_card_moderno("💰", format_money_br(_frete_total), "FRETE R$", "kpi-green", subline=_sub_frete, height_px=128, extra_class="kpi-clean kpi-plate")
                                                             with f2:
                                                                 kpi_card_moderno("🧾", format_money_br(_frete_avg), "CTRC / FRETE", "kpi-indigo", subline=_sub_ticket, height_px=128, extra_class="kpi-clean kpi-plate")
 
